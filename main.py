@@ -13,6 +13,8 @@ def load_and_clean_data():
 
 def draw_graph(*args, x: str = 'x', y: str = 'y'):
     """
+    :param y: label for y axis.
+    :param x: label for x axis.
     :param args: dict('x' : list, 'y' : list, 'name' : str)
     :return:
     """
