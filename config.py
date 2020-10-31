@@ -1,4 +1,7 @@
 # Data related parameters.
 DATA_PATH = 'Data/owid-covid-data.csv'
-COUNTRIES = ['United States', 'Norway', 'India', 'South Korea', 'Japan', 'China']
+COUNTRIES = ['Norway']
+INPUTDAYS = 14
+VALIDATION_SIZE = 0.2
+INFECTED_LOWER = 100
 
