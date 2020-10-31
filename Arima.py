@@ -2,53 +2,51 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import matplotlib.pylab as plt 
+import DataProcessing as dp
 from matplotlib.pylab import rcParams
+import os
 class ARIMA():
-  def __init__(self, x, p, d, q):
-    x = self.difference(x, d) # make x stationary
+  def __init__(self, series):
+    #TODO: PACF and ACD
+    self.p = 12
+    self.q = 2
 
-    # generate random phi values following the constraints: -1 < phi < 1, sum(phi) < 1, etc..
-    phi = self.generate_phi_random(p)
-    # generate random theta values following the constrains: -1 < theta < 1,  sum(theta) > -1, etc..
-    theta = self.generate_theta_random(q)
+    _series, _d = dp.make_stationary(series)
+    self.series = _series
+    self.d = _d
 
-    c = self.mean(x)*(1-sum(phi))  # https://people.duke.edu/~rnau/arimest.html
+    #TODO: MLE for phi and theta
+    self.phi = self.generate_example_phi(self.p)
+    self.theta = self.generate_example_theta(self.q)
 
-    e_temp = self.AR_process(c, p, phi, x)  # errors calculated by running AR
-    e = self.MA_process(q, theta, e_temp)  # errors calculated by running AR+MA
+    self.c = self.mean(self.series)*(1-sum(self.phi))  # https://people.duke.edu/~rnau/arimest.html
 
-    self.x = x
-    self.p = p
-    self.d = d
-    self.q = q
-    self.phi = phi
-    self.theta = theta
-    self.c = c
-    self.e = e
+    e_temp = self.AR_process(self.c, self.p, self.phi, self.series)  # errors calculated by running AR
+    self.e = self.MA_process(self.q, self.theta, e_temp)  # errors calculated by running AR+MA
 
   def forecast(self, h):
-    n = len(self.x)
+    n = len(self.series)
     for t in range(n, n+h):
       sum_phi_x = 0
       for i in range(self.p):
-        sum_phi_x += self.phi[i] * self.x[t-(i+1)]
+        sum_phi_x += self.phi[i] * self.series[t-(i+1)]
       sum_theta_e = 0
       for i in range(self.q):
         sum_theta_e += self.theta[i] * self.e[t-(i+1)]
       x_new = self.c + sum_phi_x + sum_theta_e
-      self.x = np.append(self.x, x_new)
+      self.series = np.append(self.series, x_new)
       self.e = np.append(self.e, 0)
-    forecast = self.undo_difference(self.x, self.d)[-h-1:]
+    forecast = dp.undo_difference(self.series, self.d)[-h-1:]
     return forecast
 
-  def AR_process(self, c, p, phi, x):
-    n = len(x)
+  def AR_process(self, c, p, phi, series):
+    n = len(series)
     e = [0 for i in range(n)]
     for t in range(p, n):
-      sum_phi_x = 0
+      sum_phi_series = 0
       for i in range(p):
-        sum_phi_x += phi[i] * x[t-(i+1)]
-      e[t] = x[t] - (c + sum_phi_x)
+        sum_phi_series += phi[i] * series[t-(i+1)]
+      e[t] = series[t] - (c + sum_phi_series)
     return e
 
   def MA_process(self, q, theta, e):
@@ -60,33 +58,22 @@ class ARIMA():
       e[t] -= sum_theta_e
     return e
 
-  def generate_phi_random(self, p):
+  def generate_example_phi(self, p):
     return [0.2,0,0,0,0,0,0,0,0,0,0, 0.8] 
 
-  def generate_theta_random(self, q):
+  def generate_example_theta(self, q):
     return [0.4, 0.4]
 
-  def mean(self, x):
-    return sum(x)/len(x)
-
-  def difference(self, x, d=1):
-      for _ in range(d):
-        x = np.diff(x, prepend=0) # out[i] = x[i] - x[i-1], out[0]=x[0]
-      return x
-
-  def undo_difference(self, x, d=1):
-      for _ in range(d):
-        x = np.cumsum(x) # out[i] = x[i] + out[i-1], out[0]=x[0]
-      return x
+  def mean(self, series):
+    return sum(series)/len(series)
 
 if __name__ == "__main__":
   rcParams['figure.figsize'] = 10, 6
-  path = "C:/Users/eivin/OneDrive/Skrivebord/AirPassengers.csv" 
+  path = os.path.dirname(__file__) + "\\AirPassengers.csv" 
   dataset = pd.read_csv(path)["#Passengers"].to_numpy()
-  arima = ARIMA(dataset,12,1,2)
+  arima = ARIMA(dataset)
   forecast = arima.forecast(len(dataset) // 5)
 
-  #plt.plot(forecast, "r")
   plt.plot(dataset, "r")
   x_shifted = [len(dataset) - 1 + i for i in range(len(forecast))]
   plt.plot(x_shifted, forecast, "b")
