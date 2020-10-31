@@ -115,4 +115,4 @@ if __name__ == '__main__':
   X_train, X_test, Y_train, Y_test = split_data(x, y)
   print(X_test)
   model = lstm.create_model()
-  lstm.train_model(model, X_train, Y_train, validation=(Y_train, Y_test))
+  lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))
