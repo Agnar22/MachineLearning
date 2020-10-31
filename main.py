@@ -16,7 +16,7 @@ def create_supervised_data_set(data: pd.DataFrame):
     lambda x: x.take([x for x in range(x.shape[0] - (x.shape[0] % (config.INPUTDAYS + 1)))])
   ).reset_index(drop=True)['total_cases'].to_numpy()
 
-  y = data[::(config.INPUTDAYS + 1)]
+  y = data[config.INPUTDAYS::(config.INPUTDAYS + 1)]
   x = data.reshape((-1, config.INPUTDAYS + 1))
   x = np.delete(x, config.INPUTDAYS, 1)
 
