@@ -10,6 +10,9 @@ if __name__ == "__main__":
   rcParams['figure.figsize'] = 10, 6
   path = os.path.dirname(__file__) + "\\AirPassengers.csv" 
   dataset = pd.read_csv(path)["#Passengers"].to_numpy()
+
+  # TODO: Find p and q, since I think that is done pretty badly in auto_arima
+  # TODO: Find out how this model trains (standard approuch is nested cross-validation/MLE)
   model = pm.auto_arima(dataset, seasonal=True, maxiter = 100, m=12)
   print(model.summary())
   forecast = model.predict(50)
