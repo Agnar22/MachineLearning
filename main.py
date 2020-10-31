@@ -2,6 +2,7 @@ import pandas as pd
 import config
 import matplotlib.pyplot as plt
 import numpy as np
+import lstm
 from sklearn.model_selection import train_test_split
 
 
@@ -48,6 +49,8 @@ def split_data(x: np.ndarray, y: np.ndarray):
   :return:
   """
   X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=config.VALIDATION_SIZE, random_state=42)
+  X_train = X_train.reshape(*X_train.shape, 1)
+  X_test = X_test.reshape(*X_test.shape, 1)
   return X_train, X_test, Y_train, Y_test
 
 
@@ -104,3 +107,5 @@ if __name__ == '__main__':
   x, y = normalize_data(x, y)
   X_train, X_test, Y_train, Y_test = split_data(x, y)
   print(X_test)
+  model = lstm.create_model()
+  lstm.train_model(model, X_train, Y_train, validation=(Y_train, Y_test))
