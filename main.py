@@ -24,13 +24,16 @@ def create_supervised_data_set(data: pd.DataFrame):
 
 
 def normalize_data(x: np.ndarray, y: np.ndarray):
-  # TODO: find out what to do with y.
   """
   :param x:
   :param y:
   :return: normalized values for x
   """
   difference = np.clip(x.max(axis=1, keepdims=True) - x.min(axis=1, keepdims=True), 0.000001, None)
+
+  # Normalize y.
+  y = y.reshape((-1, 1))
+  y = (2 * (y - x.min(axis=1, keepdims=True))) / difference - 1
 
   # Normalize the values from -1 to 1.
   x = (2 * (x - x.min(axis=1, keepdims=True))) / difference - 1
@@ -96,9 +99,8 @@ def visualize_spread_for_countries(data: pd.DataFrame):
 
 if __name__ == '__main__':
   data = load_and_clean_data()
-  print(data.columns)
   visualize_spread_for_countries(data)
   x, y = create_supervised_data_set(data)
   x, y = normalize_data(x, y)
   X_train, X_test, Y_train, Y_test = split_data(x, y)
-  print(X_train, X_test, Y_train, Y_test)
+  print(X_test)
