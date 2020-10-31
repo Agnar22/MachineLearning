@@ -32,7 +32,12 @@ def normalize_data(x: np.ndarray, y: np.ndarray):
   :param y:
   :return: normalized values for x
   """
-  difference = np.clip(x.max(axis=1, keepdims=True) - x.min(axis=1, keepdims=True), 0.000001, None)
+
+  for row in range(x.shape[0]):
+    print(x[row], y[row])
+
+  x_max, x_min = (x.max(axis=1, keepdims=True), x.min(axis=1, keepdims=True))
+  difference = np.clip(x_max - x_min, 0.000001, None)
 
   # Normalize y.
   y = y.reshape((-1, 1))
@@ -42,10 +47,15 @@ def normalize_data(x: np.ndarray, y: np.ndarray):
   x = (2 * (x - x.min(axis=1, keepdims=True))) / difference - 1
 
   # Drop values that are normalized wrong.
+  for row, val in enumerate(np.where(y>10)):
+    print(row, val, x[val], y[val])
+
+  x_max = np.delete(x_max, (np.where(y>10)), axis=0)
+  x_min = np.delete(x_min, (np.where(y>10)), axis=0)
   x = np.delete(x, (np.where(y>10)), axis=0)
   y = np.delete(y, (np.where(y>10)), axis=0)
 
-  return x, y
+  return x, y, x_max, x_min
 
 
 # Split dataset into testing & training
@@ -106,12 +116,18 @@ def visualize_spread_for_countries(data: pd.DataFrame):
     )
   draw_graph(*countries_to_visualize, x='date', y='total cases per million')
 
+def de_normalize(x:np.ndarray, x_max:np.ndarray, x_min:np.ndarray):
+  return (x + 1) * (x_max - x_min) / 2 + x_min
 
 if __name__ == '__main__':
   data = load_and_clean_data()
   visualize_spread_for_countries(data)
   x, y = create_supervised_data_set(data)
-  x, y = normalize_data(x, y)
+  x, y, x_max, x_min = normalize_data(x, y)
   X_train, X_test, Y_train, Y_test = split_data(x, y)
   model = lstm.create_model()
   lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))
+  pred = de_normalize(model.predict(x.reshape(*x.shape, 1)), x_max, x_min)
+  y = de_normalize(y, x_max, x_min)
+  for row in range(pred.shape[0]):
+    print(pred[row], y[row])
