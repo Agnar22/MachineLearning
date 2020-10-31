@@ -16,4 +16,4 @@ def create_model():
 
 
 def train_model(model: Sequential, X_train: np.ndarray, Y_train: np.ndarray, validation=None):
-  model.fit(x=X_train[0:300], y=Y_train[0:300], epochs=50, batch_size=50, verbose=True)
+  model.fit(x=X_train, y=Y_train, epochs=500, batch_size=128, verbose=True, validation_data=validation)
