@@ -113,6 +113,5 @@ if __name__ == '__main__':
   x, y = create_supervised_data_set(data)
   x, y = normalize_data(x, y)
   X_train, X_test, Y_train, Y_test = split_data(x, y)
-  print(X_test)
   model = lstm.create_model()
   lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))

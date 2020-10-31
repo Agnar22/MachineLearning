@@ -14,8 +14,4 @@ def create_model():
 
 
 def train_model(model: Sequential, X_train: np.ndarray, Y_train: np.ndarray, validation=None):
-  print(X_train.shape)
-  print(Y_train.shape)
-  Y_train = Y_train.reshape(*Y_train.shape)
-  print(model.predict(X_train))
   model.fit(x=X_train[0:300], y=Y_train[0:300], epochs=50, batch_size=50, verbose=True)
