@@ -8,6 +8,7 @@ import config
 def create_model():
   model = Sequential()
   model.add(LSTM(config.UNITS, input_shape=(config.INPUTDAYS, 1), return_sequences=False))
+  model.add(Dense(50))
   model.add(Dense(1))
   optim = Adam(learning_rate=0.0001)
   model.compile(loss='mse', optimizer=optim)
