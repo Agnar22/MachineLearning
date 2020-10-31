@@ -38,6 +38,11 @@ def normalize_data(x: np.ndarray, y: np.ndarray):
 
   # Normalize the values from -1 to 1.
   x = (2 * (x - x.min(axis=1, keepdims=True))) / difference - 1
+
+  # Drop values that are normalized wrong.
+  x = np.delete(x, (np.where(y>10)), axis=0)
+  y = np.delete(y, (np.where(y>10)), axis=0)
+
   return x, y
 
 
