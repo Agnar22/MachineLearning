@@ -5,6 +5,10 @@ import numpy as np
 import lstm
 from sklearn.model_selection import train_test_split
 
+def limit_mod(x):
+  x = x[x['total_cases'] >= config.INFECTED_LOWER]
+  return x.take([x for x in range(x.shape[0] - (x.shape[0] % (config.INPUTDAYS + 1)))])
+
 
 def create_supervised_data_set(data: pd.DataFrame):
   """
@@ -12,9 +16,7 @@ def create_supervised_data_set(data: pd.DataFrame):
   :return: supervised data set (input and target)
   """
   data = data.groupby('location').apply(
-    lambda x: x[x['total_cases'] >= config.INFECTED_LOWER]
-  ).apply(
-    lambda x: x.take([x for x in range(x.shape[0] - (x.shape[0] % (config.INPUTDAYS + 1)))])
+    lambda x: limit_mod(x)
   ).reset_index(drop=True)['total_cases'].to_numpy()
 
   y = data[config.INPUTDAYS::(config.INPUTDAYS + 1)]
