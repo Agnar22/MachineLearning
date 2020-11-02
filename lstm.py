@@ -1,6 +1,6 @@
-from keras.layers import Dense, Flatten, LSTM, RepeatVector, Dropout
+from keras.layers import Dense, LSTM, Dropout
 from keras.models import Sequential
-from keras.optimizers import Adam
+from keras.optimizers import Adam, RMSprop
 import numpy as np
 import config
 import main
@@ -10,18 +10,21 @@ def create_model():
   model = Sequential()
   model.add(LSTM(config.UNITS, input_shape=(config.INPUTDAYS, 1), return_sequences=False))
   model.add(Dropout(0.25))
-  model.add(Dense(256, activation='relu'))
+  model.add(Dense(128, activation='relu'))
+  model.add(Dropout(0.25))
+  model.add(Dense(128, activation='relu'))
   model.add(Dropout(0.25))
   model.add(Dense(128, activation='relu'))
   model.add(Dense(1, activation='linear'))
-  optim = Adam(lr=0.001)
+  optim = Adam(lr=0.0001)
+  #optim = RMSprop()
   model.compile(loss='mse', optimizer=optim)
   model.summary()
   return model
 
 
 def train_model(model: Sequential, X_train: np.ndarray, Y_train: np.ndarray, validation=None):
-  model.fit(x=X_train, y=Y_train, epochs=25, batch_size=64, verbose=True, validation_data=validation)
+  model.fit(x=X_train, y=Y_train, epochs=25, batch_size=128, verbose=True, validation_data=validation)
 
 
 def predict(model: Sequential, x: np.ndarray, days: int):
