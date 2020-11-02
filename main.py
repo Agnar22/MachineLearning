@@ -5,55 +5,81 @@ import numpy as np
 import lstm
 from sklearn.model_selection import train_test_split
 
-def limit_mod(x):
-  x = x[x['total_cases'] >= config.INFECTED_LOWER]
-  return x.take([x for x in range(x.shape[0] - (x.shape[0] % (config.INPUTDAYS + 1)))])
+
+def groups_to_cases(groups, overlapping: bool = False):
+  """
+  :param groups:
+  :param overlapping:
+  :return:
+  """
+  y = np.array([])
+  x = np.array([]).reshape(-1, config.INPUTDAYS)
+  for _, group in groups:
+    x_group, y_group = group_to_cases(group, overlapping=overlapping)
+    y = np.concatenate((y, y_group))
+    x = np.concatenate((x, x_group))
+  return x, y
 
 
-def create_supervised_data_set(data: pd.DataFrame):
+def group_to_cases(group, overlapping: bool = False):
+  """
+  :param group:
+  :param overlapping:
+  :return:
+  """
+
+  if overlapping:
+    y = group['total_cases'].iloc[config.INPUTDAYS:].to_numpy()
+    x = np.array([]).reshape(-1, config.INPUTDAYS)
+    for row in range(group.shape[0] - config.INPUTDAYS):
+      curr_x = group['total_cases'].iloc[row:row + config.INPUTDAYS].to_numpy()
+      x = np.concatenate((x, curr_x.reshape(1, config.INPUTDAYS)), axis=0)
+  else:
+    y = group['total_cases'].iloc[config.INPUTDAYS::config.INPUTDAYS + 1].to_numpy()
+    x = group['total_cases'].to_numpy().reshape(-1, config.INPUTDAYS + 1)
+    x = np.delete(x, config.INPUTDAYS, 1)
+  return x, y
+
+
+def create_supervised_data_set(data: pd.DataFrame, overlapping: bool = False):
   """
   :param data:
   :return: supervised data set (input and target)
   """
-  data = data.groupby('location').apply(
-    lambda x: limit_mod(x)
-  ).reset_index(drop=True)['total_cases'].to_numpy()
-
-  y = data[config.INPUTDAYS::(config.INPUTDAYS + 1)]
-  x = data.reshape((-1, config.INPUTDAYS + 1))
-  x = np.delete(x, config.INPUTDAYS, 1)
-
+  data = data[data['total_cases'] > config.INFECTED_LOWER].groupby('location')
+  x, y = groups_to_cases(data, overlapping=overlapping)
   return x, y
 
 
-def normalize_data(x: np.ndarray, y: np.ndarray):
+def normalize_data(x: np.ndarray, y: np.ndarray = None):
   """
   :param x:
   :param y:
   :return: normalized values for x
   """
 
-  for row in range(x.shape[0]):
-    print(x[row], y[row])
+  dim = len(x.shape) - 1
 
-  x_max, x_min = (x.max(axis=1, keepdims=True), x.min(axis=1, keepdims=True))
+  x_max, x_min = (x.max(axis=dim, keepdims=True), x.min(axis=dim, keepdims=True))
   difference = np.clip(x_max - x_min, 0.000001, None)
 
   # Normalize y.
-  y = y.reshape((-1, 1))
-  y = (2 * (y - x.min(axis=1, keepdims=True))) / difference - 1
+  if (y is not None):
+    y = y.reshape((-1, 1))
+    y = (2 * (y - x.min(axis=dim, keepdims=True))) / difference - 1
 
   # Normalize the values from -1 to 1.
-  x = (2 * (x - x.min(axis=1, keepdims=True))) / difference - 1
+  x = (2 * (x - x.min(axis=dim, keepdims=True))) / difference - 1
 
   # Drop values that are normalized wrong.
-  for row, val in enumerate(np.where(y>10)):
-    print(row, val, x[val], y[val])
+  # for row, val in enumerate(np.where(y > 10)):
+  #  print("over 10", row, val, x[val], y[val])
 
-  x_max = np.delete(x_max, (np.where(y>10)), axis=0)
-  x_min = np.delete(x_min, (np.where(y>10)), axis=0)
-  x = np.delete(x, (np.where(y>10)), axis=0)
-  y = np.delete(y, (np.where(y>10)), axis=0)
+  if (y is not None):
+    x_max = np.delete(x_max, (np.where(y > 10)), axis=0)
+    x_min = np.delete(x_min, (np.where(y > 10)), axis=0)
+    x = np.delete(x, (np.where(y > 10)), axis=0)
+    y = np.delete(y, (np.where(y > 10)), axis=0)
 
   return x, y, x_max, x_min
 
@@ -65,7 +91,7 @@ def split_data(x: np.ndarray, y: np.ndarray):
   :param y:
   :return:
   """
-  X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=config.VALIDATION_SIZE, random_state=42)
+  X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=config.VALIDATION_SIZE, random_state=2)
   X_train = X_train.reshape(*X_train.shape, 1)
   X_test = X_test.reshape(*X_test.shape, 1)
   return X_train, X_test, Y_train, Y_test
@@ -77,7 +103,6 @@ def load_and_clean_data():
   """
   data = pd.read_csv(config.DATA_PATH)
   data['date'] = pd.DatetimeIndex(data['date'])
-  # data = data[data['location'].isin(config.COUNTRIES)]
   data = data.fillna(0)
   return data
 
@@ -116,18 +141,23 @@ def visualize_spread_for_countries(data: pd.DataFrame):
     )
   draw_graph(*countries_to_visualize, x='date', y='total cases per million')
 
-def de_normalize(x:np.ndarray, x_max:np.ndarray, x_min:np.ndarray):
+
+def de_normalize(x: np.ndarray, x_max: np.ndarray, x_min: np.ndarray):
   return (x + 1) * (x_max - x_min) / 2 + x_min
+
 
 if __name__ == '__main__':
   data = load_and_clean_data()
-  visualize_spread_for_countries(data)
-  x, y = create_supervised_data_set(data)
-  x, y, x_max, x_min = normalize_data(x, y)
-  X_train, X_test, Y_train, Y_test = split_data(x, y)
+  # visualize_spread_for_countries(data)
+
+  x, y = create_supervised_data_set(data[data['location'] != 'Norway'], overlapping=True)
+  x_norm, y_norm, x_max, x_min = normalize_data(x, y)
+  X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
+
   model = lstm.create_model()
   lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))
-  pred = de_normalize(model.predict(x.reshape(*x.shape, 1)), x_max, x_min)
-  y = de_normalize(y, x_max, x_min)
-  for row in range(pred.shape[0]):
-    print(pred[row], y[row])
+
+  cases_norway = data[data['location'] == 'Norway']
+  predictions = lstm.predict(model, cases_norway.iloc[100:114]['total_cases'].to_numpy(), 100)
+  for day in range(predictions.shape[0]):
+    print(data['date'].iloc[114 + day], predictions[day], cases_norway.iloc[114 + day]['total_cases'])
