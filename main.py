@@ -76,10 +76,11 @@ def normalize_data(x: np.ndarray, y: np.ndarray = None):
   #  print("over 10", row, val, x[val], y[val])
 
   if (y is not None):
-    x_max = np.delete(x_max, (np.where(y > 10)), axis=0)
-    x_min = np.delete(x_min, (np.where(y > 10)), axis=0)
-    x = np.delete(x, (np.where(y > 10)), axis=0)
-    y = np.delete(y, (np.where(y > 10)), axis=0)
+    invalid_rows = np.where((y > 3) | (y < 1))
+    x_max = np.delete(x_max, invalid_rows, axis=0)
+    x_min = np.delete(x_min, invalid_rows, axis=0)
+    x = np.delete(x, invalid_rows, axis=0)
+    y = np.delete(y, invalid_rows, axis=0)
 
   return x, y, x_max, x_min
 
@@ -91,7 +92,7 @@ def split_data(x: np.ndarray, y: np.ndarray):
   :param y:
   :return:
   """
-  X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=config.VALIDATION_SIZE, random_state=2)
+  X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=config.VALIDATION_SIZE, random_state=42)
   X_train = X_train.reshape(*X_train.shape, 1)
   X_test = X_test.reshape(*X_test.shape, 1)
   return X_train, X_test, Y_train, Y_test
