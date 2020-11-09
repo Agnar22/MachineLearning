@@ -11,6 +11,10 @@ from main import create_supervised_data_set, load_and_clean_data
 def get_cases(data: pd.DataFrame):
   return data[data['location'] == config.COUNTRIES[0]]['total_cases_per_million'].values
 
+def mape(actual, pred): 
+    actual, pred = np.array(actual), np.array(pred)
+    return np.mean(np.abs((actual - pred) / actual)) * 100
+
 if __name__ == "__main__":
   dataset = get_cases(load_and_clean_data())
   predict_amount = 30
@@ -25,3 +29,5 @@ if __name__ == "__main__":
   x_shifted = [i + (len(dataset[:-predict_amount])) for i in range(predict_amount)]
   plt.plot(x_shifted, forecast, "b")
   plt.show()
+
+  print(mape(dataset[-predict_amount:], forecast))
