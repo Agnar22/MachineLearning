@@ -13,10 +13,15 @@ def get_cases(data: pd.DataFrame):
 
 if __name__ == "__main__":
   dataset = get_cases(load_and_clean_data())
-  model = pm.auto_arima(dataset[:-90], maxiter = 100, d = 3)
+  predict_amount = 30
+  model = pm.arima.ARIMA(order=(6, 3, 0), seasonal_order=(0, 0, 1, 7), maxiter = 100) 
+  model.fit(dataset[:-predict_amount])
+  forecast = model.predict(predict_amount)
+  #model = pm.arima.AutoARIMA(maxiter = 100, d = 3, seasonal=True, m = 7)
+  #forecast = model.fit_predict(y = dataset[:-30], n_periods = 30)
   print(model.summary())
-  forecast = model.predict(90)
+  
   plt.plot(dataset, "r")
-  x_shifted = [i + (len(dataset[:-90])) for i in range(90)]
+  x_shifted = [i + (len(dataset[:-predict_amount])) for i in range(predict_amount)]
   plt.plot(x_shifted, forecast, "b")
   plt.show()
