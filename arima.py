@@ -6,8 +6,11 @@ from matplotlib.pylab import rcParams
 import pmdarima as pm
 import os
 import config
-from pmdarima import model_selection
 from main import create_supervised_data_set, load_and_clean_data
+from scipy import stats
+from scipy.stats import normaltest
+from pmdarima import model_selection
+import time
 
 def get_cases(data: pd.DataFrame):
   return data[data['location'] == config.COUNTRIES[0]]['total_cases_per_million'].values
@@ -16,60 +19,56 @@ def mape(actual, pred):
     actual, pred = np.array(actual), np.array(pred)
     return np.mean(np.abs((actual - pred) / actual)) * 100
 
+def cross_validation_parameters(dataset):
+  # Runtime ~ 6 hours (5*5*3*3*(60 to 120 sec))
+
+  start = time.time()
+
+  p_values = range(0, 5)
+  q_values = range(0, 5)
+  P_values = range(0, 3)
+  Q_values = range(0, 3)
+
+  best_score, best_parameters = float("inf"), None
+  cv = model_selection.RollingForecastCV(step=3, h=30)
+  for p in p_values:
+    for q in q_values:
+      for P in P_values:
+        for Q in Q_values:
+          model = pm.arima.ARIMA(order=(p, 1, q), seasonal_order=(P, 1, Q, 7), suppress_warnings=True) 
+          cv_scores = model_selection.cross_val_score(model, dataset, scoring=mape,cv=cv) #, scoring='smape'
+          score = np.average(cv_scores)
+          parameters = (p,q,P,Q)
+          print(p,q,P,Q,"- mape:",score)
+          if score < best_score:
+            best_score, best_parameters = score, parameters
+  print("Best parameters:", best_parameters)
+
+  end = time.time()
+
+  print(f"Runtime: {end - start}s")
+
+  return best_parameters
+
 def run():
   data = get_cases(load_and_clean_data())
+
   train, test = model_selection.train_test_split(data, test_size=30)
 
-  # Even though we have a dedicated train/test split, we can (and should) still
-  # use cross-validation on our training set to get a good estimate of the model
-  # performance. We can choose which model is better based on how it performs
-  # over various folds.
-  model1 = pm.ARIMA(order=(6, 3, 0),
-                    seasonal_order=(0, 0, 1, 7),
-                    suppress_warnings=True)
-  model2 = pm.ARIMA(order=(5, 3, 0),
-                    seasonal_order=(0, 0, 1, 7),
-                    suppress_warnings=True,)
-  cv = model_selection.SlidingWindowForecastCV(step=1, h=30)
+  # p,q,P,Q = cross_validation_parameters(train)
+  # Result: Best parameters: (1, 3, 0, 0)
 
-  model1_cv_scores = model_selection.cross_val_score(
-      model1, train, scoring='smape', cv=cv, verbose=2)
+  p,q,P,Q = 1,3,0,0
 
-  model2_cv_scores = model_selection.cross_val_score(
-      model2, train, scoring='smape', cv=cv, verbose=2)
+  model = pm.arima.ARIMA(order=(p, 1, q), seasonal_order=(P, 1, Q, 7), suppress_warnings=True)
+  forecast = model.fit_predict(y = train, n_periods = 30)
 
-  print("Model 1 CV scores: {}".format(model1_cv_scores.tolist()))
-  print("Model 2 CV scores: {}".format(model2_cv_scores.tolist()))
+  print("Final mape:", mape(test, forecast))
 
-  # Pick based on which has a lower mean error rate
-  m1_average_error = np.average(model1_cv_scores)
-  m2_average_error = np.average(model2_cv_scores)
-  errors = [m1_average_error, m2_average_error]
-  models = [model1, model2]
-
-  # print out the answer
-  better_index = np.argmin(errors)  # type: int
-  print("Lowest average SMAPE: {} (model{})".format(
-      errors[better_index], better_index + 1))
-  print("Best model: {}".format(models[better_index]))
-
-def old():
-  dataset = get_cases(load_and_clean_data())
-  predict_amount = 30
-  model = pm.arima.ARIMA(order=(6, 3, 0), seasonal_order=(0, 0, 1, 7), maxiter = 100) 
-  model.fit(dataset[:-predict_amount])
-  forecast = model.predict(predict_amount)
-  #model = pm.arima.AutoARIMA(maxiter = 100, d = 3, seasonal=True, m = 7)
-  #forecast = model.fit_predict(y = dataset[:-30], n_periods = 30)
-  print(model.summary())
-  
-  plt.plot(dataset, "r")
-  x_shifted = [i + (len(dataset[:-predict_amount])) for i in range(predict_amount)]
+  plt.plot(data, "r")
+  x_shifted = [i + len(train) for i in range(len(test))]
   plt.plot(x_shifted, forecast, "b")
   plt.show()
 
-  print(mape(dataset[-predict_amount:], forecast))
-
 if __name__ == "__main__":
   run()
-
