@@ -18,32 +18,50 @@ def mape(actual, pred):
     actual, pred = np.array(actual), np.array(pred)
     return np.mean(np.abs((actual - pred) / actual)) * 100
 
+def cross_validation_parameters(dataset):
+  p_values = range(0, 7)
+  q_values = range(0, 7)
+  P_values = range(0, 3)
+  Q_values = range(0, 3)
+
+  p_values = range(1,3)
+  q_values = range(1,2)
+  P_values = range(1,2)
+  Q_values = range(1,2)
+
+  best_score, best_parameters = float("inf"), None
+  cv = model_selection.RollingForecastCV(step=10, h=30)
+  for p in p_values:
+    for q in q_values:
+      for P in P_values:
+        for Q in Q_values:
+          model = pm.arima.ARIMA(order=(p, 1, q), seasonal_order=(P, 1, Q, 7), suppress_warnings=True) 
+          cv_scores = model_selection.cross_val_score(model, dataset, scoring=mape,cv=cv, verbose=2) #, scoring='smape'
+          score = np.average(cv_scores)
+          parameters = (p,q,P,Q)
+          print(p,q,P,Q,"- mape:",score)
+          if score < best_score:
+            best_score, best_parameters = score, parameters
+  print("Best parameters:", best_parameters)
+  return best_parameters
 # nested cross validation brukes for error estimerings delen
 # prøv å få hyper parameters og prøv å få score for rapport
 
 def run():
-  y = get_cases(load_and_clean_data())
+  data = get_cases(load_and_clean_data())[:-30]
 
-  #est = pm.arima.ARIMA(order=(5, 3, 0), seasonal_order=(0, 0, 1, 7), suppress_warnings=True) 
-  est = pm.arima.ARIMA(order=(5, 3, 0), seasonal_order=(0, 0, 1, 7), suppress_warnings=True) 
-  est.fit(y)
-  print(normaltest(est.resid()))
-  cv = model_selection.RollingForecastCV(step=5, h=30, initial=90)
-  predictions = model_selection.cross_val_predict(
-      est, y, cv=cv, verbose=2)
-  score = model_selection.cross_val_score(
-      est, y, scoring = 'mean_squared_error', cv=cv, verbose=2)
-  print("Model 1 CV scores: {}".format(score.tolist()))
+  train, test = model_selection.train_test_split(data, test_size=30)
 
-  # plot the predictions over the original series
-  x_axis = np.arange(y.shape[0])
-  n_test = predictions.shape[0]
+  p,q,P,Q = cross_validation_parameters(train)
 
-  plt.plot(x_axis, y, alpha=0.75, c='b')
-  plt.plot(x_axis[-n_test:], predictions, alpha=0.75, c='g')  # Forecasts
-  plt.title("Cross-validated forecasts")
+  model = pm.arima.ARIMA(order=(p, 1, q), seasonal_order=(P, 1, Q, 7), suppress_warnings=True)
+  forecast = model.fit_predict(y = train, n_periods = 30)
+
+  plt.plot(data, "r")
+  x_shifted = [i + len(train) for i in range(len(test))]
+  plt.plot(x_shifted, forecast, "b")
+  print("Final mape:", mape(test, forecast))
   plt.show()
-
 
 if __name__ == "__main__":
   run()
