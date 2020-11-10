@@ -76,7 +76,7 @@ def normalize_data(x: np.ndarray, y: np.ndarray = None):
   #  print("over 10", row, val, x[val], y[val])
 
   if (y is not None):
-    invalid_rows = np.where((y > 9) | (y < 1))
+    invalid_rows = np.where((y > 2) | (y < 1))
     x_max = np.delete(x_max, invalid_rows, axis=0)
     x_min = np.delete(x_min, invalid_rows, axis=0)
     x = np.delete(x, invalid_rows, axis=0)
@@ -110,9 +110,9 @@ def load_and_clean_data():
 
 def draw_graph(*args, x: str = 'x', y: str = 'y'):
   """
+  :param args: dict('x' : list, 'y' : list, 'name' : str)
   :param y: label for y axis.
   :param x: label for x axis.
-  :param args: dict('x' : list, 'y' : list, 'name' : str)
   :return:
   """
 
@@ -123,7 +123,7 @@ def draw_graph(*args, x: str = 'x', y: str = 'y'):
   plt.ylabel(y)
   plt.xticks(fontsize=8)
   plt.legend()
-  plt.show()
+  plt.show(block=False)
 
 
 def visualize_spread_for_countries(data: pd.DataFrame):
@@ -143,6 +143,33 @@ def visualize_spread_for_countries(data: pd.DataFrame):
   draw_graph(*countries_to_visualize, x='date', y='total cases per million')
 
 
+def visualize_predictions(cases: pd.DataFrame):
+  loop = True
+  while loop:
+    try:
+      start_day = int(input("Start day:"))
+      prediction_length = int(input("prediction length:"))
+      output_start = start_day + config.INPUTDAYS
+      output_end = output_start + prediction_length
+
+      predictions = lstm.predict(model, cases.iloc[start_day:output_start]['total_cases'].to_numpy(),
+                                 prediction_length)
+      for day in range(predictions.shape[0]):
+        print(data['date'].iloc[output_start + day], predictions[day], cases.iloc[output_start + day]['total_cases'])
+      draw_graph(
+        {'x': cases['date'].iloc[output_start:output_end], 'y': predictions.tolist(), 'name': 'prediction'},
+        {'x': cases['date'].iloc[:start_day], 'y': cases_norway['total_cases'].iloc[:start_day], 'name': 'start'},
+        {'x': cases['date'].iloc[start_day:output_start], 'y': cases['total_cases'].iloc[start_day:output_start],
+         'name': 'input'},
+        {'x': cases['date'].iloc[output_start:output_end], 'y': cases['total_cases'].iloc[output_start:output_end],
+         'name': 'target'},
+      )
+    except:
+      ans = input("quit?")
+      if ans == 'y':
+        loop = False
+
+
 def de_normalize(x: np.ndarray, x_max: np.ndarray, x_min: np.ndarray):
   return (x + 1) * (x_max - x_min) / 2 + x_min
 
@@ -156,9 +183,18 @@ if __name__ == '__main__':
   X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
 
   model = lstm.create_model()
-  lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))
+  train_hist = lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test), save_interval=10)
+  draw_graph(
+    {'x': train_hist.index, 'y': train_hist['loss'], 'name': 'training'},
+    {'x': train_hist.index, 'y': train_hist['val_loss'], 'name': 'validation'}
+  )
+  predictions = model.predict(X_train)
+  loss = (predictions - Y_train) ** 2
+  # plt.boxplot(Y_test)
+  # plt.show()
+
+  # for pos in np.flip(np.argsort(loss, axis=0))[0:10]:
+  #  print(pos, X_train[pos], Y_train[pos], predictions[pos], loss[pos])
 
   cases_norway = data[data['location'] == 'Norway']
-  predictions = lstm.predict(model, cases_norway.iloc[100:114]['total_cases'].to_numpy(), 100)
-  for day in range(predictions.shape[0]):
-    print(data['date'].iloc[114 + day], predictions[day], cases_norway.iloc[114 + day]['total_cases'])
+  visualize_predictions(cases_norway)
