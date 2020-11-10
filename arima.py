@@ -11,7 +11,7 @@ from main import create_supervised_data_set, load_and_clean_data
 import seaborn as sns
 from scipy import stats
 from scipy.stats import normaltest
-from dataprocessing import make_stationary
+from dataprocessing import make_stationary, difference
 import statsmodels.api as sm
 
 def visualize_data(data: pd.DataFrame):
@@ -72,8 +72,8 @@ def load_and_clean_exog_data2():
 def check_residual(data :pd.DataFrame):
   #arima_mod6 = sm.tsa.ARIMA(data, (6,0,0)).fit(disp=False) # disp = print output
 
-  arima_mod6 = pm.arima.ARIMA(order=(5, 3, 0), seasonal_order=(0, 0, 1, 7), maxiter = 100) 
-  arima_mod6.fit(data[1:-90], exogenous = load_and_clean_exog_data())
+  arima_mod6 = pm.arima.ARIMA(order=(6, 1, 0), seasonal_order=(0, 0, 1, 7), maxiter = 100) 
+  arima_mod6.fit(data[1:-90])
   print(arima_mod6.arparams())
   # arima_mod6.plot_diagnostics()
   # plt.show()
@@ -86,7 +86,7 @@ def check_residual(data :pd.DataFrame):
   #plt.hist(resid)
   #plt.show()
 
-  forecast = arima_mod6.predict(87, exogenous = load_and_clean_exog_data2())
+  forecast = arima_mod6.predict(87)
   plt.plot(data[:-3], "r")
   x_shifted = [i + (len(data[:-90])) for i in range(87)]
   plt.plot(x_shifted, forecast, "b")
@@ -100,10 +100,14 @@ def get_cases(data: pd.DataFrame):
 if __name__ == "__main__":
   dataset = get_cases(load_and_clean_data())  
 
-  dataset_stationary, d = make_stationary(dataset)
-  #visualize_data(dataset_stationary)
+  dataset_stationary = difference(dataset, d = 1, lag = 1)
+  dataset_stationary = difference(dataset_stationary, d = 1, lag = 7)
+  dataset_stationary, d = make_stationary(dataset_stationary)
+  print(d)
+  #dataset_stationary = difference(dataset, d = 1, lag = 1)
+  visualize_data(dataset_stationary)
 
-  check_residual(dataset)
+  #check_residual(dataset)
 
   
 

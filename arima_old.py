@@ -9,6 +9,8 @@ import config
 from main import create_supervised_data_set, load_and_clean_data
 from scipy.stats import normaltest
 
+predict_num = 30
+
 def get_cases(data: pd.DataFrame):
   return data[data['location'] == config.COUNTRIES[0]]['total_cases_per_million'].values
 
@@ -35,15 +37,25 @@ def load_and_clean_exog_data():
 
 if __name__ == "__main__":
   dataset = get_cases(load_and_clean_data())
-  model = pm.arima.AutoARIMA(maxiter = 100, d = 3, seasonal=True, m = 7)
+  methods = ['newton','nm', 'bfgs', 'lbfgs', 'powell', 'cg']
+  for method_arg in methods:
+    print(method_arg)
 
-  #resid = model.resid()
-  #print(normaltest(resid))
-  #plt.hist(resid)
-  #plt.show()
-  #print(model.summary())
-  forecast = model.fit_predict(y = dataset[:-90], exogenous = load_and_clean_exog_data(), n_periods = 90)
-  plt.plot(dataset, "r")
-  x_shifted = [i + (len(dataset[:-90])) for i in range(90)]
-  plt.plot(x_shifted, forecast, "b")
-  plt.show()
+    #d trend
+    #P mellom 1 og 2 pga spikes
+    #D seasonality
+    #Q no spikes
+    #m seasonality lag
+    model = pm.arima.AutoARIMA(d = 1, seasonal=True, D = 1, m = 7, suppress_warnings=True)
+
+    #resid = model.resid()
+    #print(normaltest(resid))
+    #plt.hist(resid)
+    #plt.show()
+    #model.fit()
+    forecast = model.fit_predict(y = dataset[:-predict_num], n_periods = predict_num)
+    print(model.summary())
+    plt.plot(dataset, "r")
+    x_shifted = [i + (len(dataset[:-predict_num])) for i in range(predict_num)]
+    plt.plot(x_shifted, forecast, "b")
+    plt.show()

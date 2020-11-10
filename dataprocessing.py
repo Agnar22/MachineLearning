@@ -9,9 +9,13 @@ def is_stationary(series):
   pValue = adfTest[1]
   return pValue<SignificanceLevel
 
-def difference(series, d=1):
+def difference(series, d=1, lag=1):
   for _ in range(d):
-    series = np.diff(series, prepend=0) # out[i] = y[i] - y[i-1], out[0]=y[0]
+    differenced_series = []
+    series = np.insert(series,0,0,axis=0) # prepend 0 to keep starting value
+    for n in range(len(series) - lag):
+      differenced_series.append(series[n+lag] - series[n]) # out[i] = y[i] - y[i-1], out[0]=y[0]
+    series = np.array(differenced_series)
   return series
 
 def undo_difference(series, d=1):
@@ -27,3 +31,9 @@ def make_stationary(series):
     if d == 100:
       raise Exception("Could not differentiate the data")
   return (series, d)
+
+if __name__ == "__main__":
+  print(difference([0,1,2], d=1, lag=2))
+
+  #Finne riktig p,q,d, så jeg ikke trenger å tenke på det shittet (pacf,acf/grid)
+  #Teste hvilken method som er best
