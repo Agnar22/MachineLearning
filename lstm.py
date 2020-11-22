@@ -51,16 +51,13 @@ def train_model(model: Sequential, X_train: np.ndarray, Y_train: np.ndarray, val
 
 def calculate_shap(model: Sequential, X_train: np.ndarray, X_test: np.ndarray, features: List[str]):
   explainer = shap.DeepExplainer(model, X_train)
-  shap_values = explainer.shap_values(X_test[0:1])
-  # e = shap.DeepExplainer(model, X_train)
-  # shap_values = e.shap_values(validation[0])
+  shap_values = explainer.shap_values(X_test)
   shap.initjs()
-  print(explainer.expected_value)
-  i, j = (0, 0)
-  x_test_df = pd.DataFrame(data=X_test[i][j].reshape(1,len(config.FEATURES)), columns=features)
-  print(shap_values)
-  print(len(shap_values[0][i][j]), len(shap_values))
-  shap.force_plot(explainer.expected_value[0], shap_values[0][i][j], x_test_df, matplotlib=True)
+  shap_values_2d = shap_values[0].reshape(-1, len(config.FEATURES))
+  X_test_2d = X_test.reshape(-1, len(config.FEATURES))
+
+  shap.summary_plot(shap_values_2d, X_test_2d, features)
+
 
 
 def predict(model: Sequential, x: np.ndarray, days: int):
