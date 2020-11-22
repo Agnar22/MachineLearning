@@ -27,17 +27,11 @@ def group_to_cases(group, overlapping: bool = False):
   :return:
   """
 
-  features = ['C1_School closing', 'C2_Workplace closing', 'C3_Cancel public events', 'C4_Restrictions on gatherings',
-              'C5_Close public transport', 'C6_Stay at home requirements', 'C7_Restrictions on internal movement',
-              'C8_International travel controls', 'E1_Income support', 'E2_Debt/contract relief', 'E3_Fiscal measures',
-              'E4_International support', 'H1_Public information campaigns', 'H2_Testing policy', 'H3_Contact tracing',
-              'H4_Emergency investment in healthcare', 'H6_Facial Coverings', 'ConfirmedCases']
-
   y = group['ConfirmedCases'].iloc[config.INPUTDAYS:].to_numpy()
-  x = np.array([]).reshape(-1, config.INPUTDAYS, len(features))
+  x = np.array([]).reshape(-1, config.INPUTDAYS, len(config.FEATURES))
   for row in range(group.shape[0] - config.INPUTDAYS):
-    curr_x = group[features].iloc[row:row + config.INPUTDAYS].to_numpy()
-    x = np.concatenate((x, curr_x.reshape(1, config.INPUTDAYS, len(features))), axis=0)
+    curr_x = group[config.FEATURES].iloc[row:row + config.INPUTDAYS].to_numpy()
+    x = np.concatenate((x, curr_x.reshape(1, config.INPUTDAYS, len(config.FEATURES))), axis=0)
   return x, y
 
 
@@ -131,17 +125,9 @@ if __name__ == '__main__':
   X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
 
   model = lstm.create_model()
-  train_hist = lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))
   predictions = model.predict(X_train)
   loss = (predictions - Y_train) ** 2
-  print("predictions", predictions)
-  features = ['C1_School closing', 'C2_Workplace closing', 'C3_Cancel public events', 'C4_Restrictions on gatherings',
-              'C5_Close public transport', 'C6_Stay at home requirements', 'C7_Restrictions on internal movement',
-              'C8_International travel controls', 'E1_Income support', 'E2_Debt/contract relief', 'E3_Fiscal measures',
-              'E4_International support', 'H1_Public information campaigns', 'H2_Testing policy', 'H3_Contact tracing',
-              'H4_Emergency investment in healthcare', 'H6_Facial Coverings', 'ConfirmedCases']
-
-  lstm.calculate_shap(model, X_train, X_test, features)
+  lstm.calculate_shap(model, X_train, X_test, config.FEATURES)
   # plt.boxplot(Y_test)
   # plt.show()
 
