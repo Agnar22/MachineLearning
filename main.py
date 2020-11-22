@@ -193,6 +193,7 @@ def de_normalize(x: np.ndarray, x_max: np.ndarray, x_min: np.ndarray):
 
 if __name__ == '__main__':
   data = load_and_clean_data()
+  data = data.iloc[0:200]
   # visualize_spread_for_countries(data)
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
@@ -203,9 +204,18 @@ if __name__ == '__main__':
   train_hist = lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))
   predictions = model.predict(X_train)
   loss = (predictions - Y_train) ** 2
+  print("predictions", predictions)
+  features = ['C1_School closing', 'C2_Workplace closing', 'C3_Cancel public events', 'C4_Restrictions on gatherings',
+              'C5_Close public transport', 'C6_Stay at home requirements', 'C7_Restrictions on internal movement',
+              'C8_International travel controls', 'E1_Income support', 'E2_Debt/contract relief', 'E3_Fiscal measures',
+              'E4_International support', 'H1_Public information campaigns', 'H2_Testing policy', 'H3_Contact tracing',
+              'H4_Emergency investment in healthcare', 'H6_Facial Coverings', 'ConfirmedCases']
+
+  lstm.calculate_shap(model, X_train, X_test, features)
   # plt.boxplot(Y_test)
   # plt.show()
 
   # for pos in np.flip(np.argsort(loss, axis=0))[0:10]:
   #  print(pos, X_train[pos], Y_train[pos], predictions[pos], loss[pos])
 
+  cases_norway = data[data['CountryName'] == 'Norway']
