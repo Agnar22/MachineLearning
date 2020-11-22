@@ -19,34 +19,31 @@ def create_model():
   model.add(Dense(1, activation='linear'))
   optim = Adam(lr=0.0001)
   # optim = RMSprop()
-  model.compile(loss='mse', optimizer=optim)
+  model.compile(loss='logcosh', optimizer=optim)
   model.summary()
   return model
 
 
-def train_model(model: Sequential, X_train: np.ndarray, Y_train: np.ndarray, validation=None, save_interval: int = 0):
-  history = None
-  if save_interval > 0:
-    for interval in range(60 // save_interval):
-      interval_history = model.fit(
-        x=X_train,
-        y=Y_train,
-        epochs=save_interval,
-        batch_size=128,
-        verbose=True,
-        validation_data=validation
-      )
-      model.save(f'{config.LSTM_MODEL_DIR}/model_{interval}.h5')
-      losses = np.vstack((interval_history.history['loss'], interval_history.history['val_loss']))
-      if history is not None:
-        history = np.hstack((history, losses))
-      else:
-        history = losses
+def train_model(model: Sequential, X_train: np.ndarray, Y_train: np.ndarray, validation=None):
+  if config.SAVE:
+    model_checkpoint_callback = ModelCheckpoint(
+      filepath='Models/LSTM/model_{epoch}_{val_loss:.4f}.h5',
+      save_weights_only=False,
+      monitor='val_loss',
+      mode='auto',
+      save_best_only=True
+    )
+
+    train_history = model.fit(
+      X_train,
+      Y_train,
+      epochs=config.EPOCHS,
+      validation_data=validation,
+      callbacks=[model_checkpoint_callback]
+    )
   else:
-    train_hist = model.fit(x=X_train, y=Y_train, epochs=30, batch_size=128, verbose=True, validation_data=validation).history
-    history = np.hstack((train_hist['loss'], train_hist['val_loss']))
-    model.save(f'{config.LSTM_MODEL_DIR}/model.h5')
-  return pd.DataFrame(history.T, columns=['loss', 'val_loss'])
+    train_history = model.fit(X_train, Y_train, epochs=config.EPOCHS, validation_data=validation)
+  return pd.DataFrame.from_dict(train_history.history)
 
 
 def predict(model: Sequential, x: np.ndarray, days: int):

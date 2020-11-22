@@ -183,7 +183,7 @@ if __name__ == '__main__':
   X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
 
   model = lstm.create_model()
-  train_hist = lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test), save_interval=10)
+  train_hist = lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))
   draw_graph(
     {'x': train_hist.index, 'y': train_hist['loss'], 'name': 'training'},
     {'x': train_hist.index, 'y': train_hist['val_loss'], 'name': 'validation'}

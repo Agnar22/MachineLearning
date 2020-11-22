@@ -7,7 +7,8 @@ INFECTED_LOWER = 100
 LSTM_MODEL_DIR = 'Models/LSTM'
 
 # LSTM parameters.
-UNITS = 200
-EPOCHS = 30
+UNITS = 20
+EPOCHS = 3
+SAVE = True
 
 
