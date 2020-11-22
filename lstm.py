@@ -12,7 +12,7 @@ import main
 
 def create_model():
   model = Sequential()
-  model.add(LSTM(config.UNITS, input_shape=(config.INPUTDAYS, 18), return_sequences=False))
+  model.add(LSTM(config.UNITS, input_shape=(config.INPUTDAYS, len(config.FEATURES)), return_sequences=False))
   model.add(Dropout(0.25))
   model.add(Dense(256, activation='relu'))
   model.add(Dropout(0.25))
@@ -57,7 +57,7 @@ def calculate_shap(model: Sequential, X_train: np.ndarray, X_test: np.ndarray, f
   shap.initjs()
   print(explainer.expected_value)
   i, j = (0, 0)
-  x_test_df = pd.DataFrame(data=X_test[i][j].reshape(1,18), columns=features)
+  x_test_df = pd.DataFrame(data=X_test[i][j].reshape(1,len(config.FEATURES)), columns=features)
   print(shap_values)
   print(len(shap_values[0][i][j]), len(shap_values))
   shap.force_plot(explainer.expected_value[0], shap_values[0][i][j], x_test_df, matplotlib=True)
@@ -68,7 +68,7 @@ def predict(model: Sequential, x: np.ndarray, days: int):
 
   # Make recursive predictions.
   for day in range(days):
-    pred = model.predict(x.reshape(1, config.INPUTDAYS, 18))
+    pred = model.predict(x.reshape(1, config.INPUTDAYS, len(config.FEATURES)))
     predictions = np.append(predictions, pred)
     x = np.append(x[1:], pred)
   return predictions

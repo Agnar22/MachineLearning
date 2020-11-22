@@ -12,7 +12,7 @@ def groups_to_cases(groups, overlapping: bool = False):
   :return:
   """
   y = np.array([])
-  x = np.array([]).reshape(-1, config.INPUTDAYS, 18)
+  x = np.array([]).reshape(-1, config.INPUTDAYS, len(config.FEATURES))
   for _, group in groups:
     x_group, y_group = group_to_cases(group, overlapping=overlapping)
     y = np.concatenate((y, y_group))
