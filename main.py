@@ -13,7 +13,7 @@ def groups_to_cases(groups, overlapping: bool = False):
   :return:
   """
   y = np.array([])
-  x = np.array([]).reshape(-1, config.INPUTDAYS)
+  x = np.array([]).reshape(-1, config.INPUTDAYS, 18)
   for _, group in groups:
     x_group, y_group = group_to_cases(group, overlapping=overlapping)
     y = np.concatenate((y, y_group))
@@ -28,16 +28,17 @@ def group_to_cases(group, overlapping: bool = False):
   :return:
   """
 
-  if overlapping:
-    y = group['ConfirmedCases'].iloc[config.INPUTDAYS:].to_numpy()
-    x = np.array([]).reshape(-1, config.INPUTDAYS)
-    for row in range(group.shape[0] - config.INPUTDAYS):
-      curr_x = group['ConfirmedCases'].iloc[row:row + config.INPUTDAYS].to_numpy()
-      x = np.concatenate((x, curr_x.reshape(1, config.INPUTDAYS)), axis=0)
-  else:
-    y = group['ConfirmedCases'].iloc[config.INPUTDAYS::config.INPUTDAYS + 1].to_numpy()
-    x = group['ConfirmedCases'].to_numpy().reshape(-1, config.INPUTDAYS + 1)
-    x = np.delete(x, config.INPUTDAYS, 1)
+  features = ['C1_School closing', 'C2_Workplace closing', 'C3_Cancel public events', 'C4_Restrictions on gatherings',
+              'C5_Close public transport', 'C6_Stay at home requirements', 'C7_Restrictions on internal movement',
+              'C8_International travel controls', 'E1_Income support', 'E2_Debt/contract relief', 'E3_Fiscal measures',
+              'E4_International support', 'H1_Public information campaigns', 'H2_Testing policy', 'H3_Contact tracing',
+              'H4_Emergency investment in healthcare', 'H6_Facial Coverings', 'ConfirmedCases']
+
+  y = group['ConfirmedCases'].iloc[config.INPUTDAYS:].to_numpy()
+  x = np.array([]).reshape(-1, config.INPUTDAYS, len(features))
+  for row in range(group.shape[0] - config.INPUTDAYS):
+    curr_x = group[features].iloc[row:row + config.INPUTDAYS].to_numpy()
+    x = np.concatenate((x, curr_x.reshape(1, config.INPUTDAYS, len(features))), axis=0)
   return x, y
 
 
@@ -93,8 +94,6 @@ def split_data(x: np.ndarray, y: np.ndarray):
   :return:
   """
   X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=config.VALIDATION_SIZE, random_state=2)
-  X_train = X_train.reshape(*X_train.shape, 1)
-  X_test = X_test.reshape(*X_test.shape, 1)
   return X_train, X_test, Y_train, Y_test
 
 
@@ -103,7 +102,17 @@ def load_and_clean_data():
   :return:
   """
   data = pd.read_csv(config.DATA_PATH)
-  data['date'] = pd.DatetimeIndex(data['Date'])
+  data['Date'] = pd.to_datetime(data['Date'], format='%Y%m%d')
+
+  # Remove flags.
+  data = data.drop(list(filter(lambda x: 'flag' in x.lower(), data.columns)), axis=1)
+
+  data = data.drop(['M1_Wildcard'], axis=1)
+
+  # Keep relevant columns.
+  data = data[list(filter(lambda x: '_' in x or x in ['CountryName', 'Date', 'ConfirmedCases'], data.columns))]
+
+  # TODO: check if this is correct.
   data = data.fillna(0)
   return data
 
@@ -135,8 +144,8 @@ def visualize_spread_for_countries(data: pd.DataFrame):
   for country in config.COUNTRIES:
     countries_to_visualize.append(
       {
-        'x': data[data['location'] == country]['date'],
-        'y': data[data['location'] == country]['total_cases_per_million'],
+        'x': data[data['CountryName'] == country]['date'],
+        'y': data[data['CountryName'] == country]['total_cases_per_million'],
         'name': country
       }
     )
@@ -151,8 +160,16 @@ def visualize_predictions(cases: pd.DataFrame):
       prediction_length = int(input("prediction length:"))
       output_start = start_day + config.INPUTDAYS
       output_end = output_start + prediction_length
+      features = ['C1_School closing', 'C2_Workplace closing', 'C3_Cancel public events',
+                  'C4_Restrictions on gatherings',
+                  'C5_Close public transport', 'C6_Stay at home requirements', 'C7_Restrictions on internal movement',
+                  'C8_International travel controls', 'E1_Income support', 'E2_Debt/contract relief',
+                  'E3_Fiscal measures',
+                  'E4_International support', 'H1_Public information campaigns', 'H2_Testing policy',
+                  'H3_Contact tracing',
+                  'H4_Emergency investment in healthcare', 'H6_Facial Coverings', 'ConfirmedCases']
 
-      predictions = lstm.predict(model, cases.iloc[start_day:output_start]['ConfirmedCases'].to_numpy(),
+      predictions = lstm.predict(model, cases.iloc[start_day:output_start][features].to_numpy(),
                                  prediction_length)
       for day in range(predictions.shape[0]):
         print(data['date'].iloc[output_start + day], predictions[day], cases.iloc[output_start + day]['ConfirmedCases'])
@@ -179,15 +196,11 @@ if __name__ == '__main__':
   # visualize_spread_for_countries(data)
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
-  x_norm, y_norm, x_max, x_min = normalize_data(x, y)
+  x_norm, y_norm = x, y
   X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
 
   model = lstm.create_model()
   train_hist = lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))
-  draw_graph(
-    {'x': train_hist.index, 'y': train_hist['loss'], 'name': 'training'},
-    {'x': train_hist.index, 'y': train_hist['val_loss'], 'name': 'validation'}
-  )
   predictions = model.predict(X_train)
   loss = (predictions - Y_train) ** 2
   # plt.boxplot(Y_test)
@@ -196,5 +209,3 @@ if __name__ == '__main__':
   # for pos in np.flip(np.argsort(loss, axis=0))[0:10]:
   #  print(pos, X_train[pos], Y_train[pos], predictions[pos], loss[pos])
 
-  cases_norway = data[data['location'] == 'Norway']
-  visualize_predictions(cases_norway)

@@ -10,7 +10,7 @@ import main
 
 def create_model():
   model = Sequential()
-  model.add(LSTM(config.UNITS, input_shape=(config.INPUTDAYS, 1), return_sequences=False))
+  model.add(LSTM(config.UNITS, input_shape=(config.INPUTDAYS, 18), return_sequences=False))
   model.add(Dropout(0.25))
   model.add(Dense(256, activation='relu'))
   model.add(Dropout(0.25))
@@ -46,19 +46,17 @@ def train_model(model: Sequential, X_train: np.ndarray, Y_train: np.ndarray, val
     train_history = model.fit(X_train, Y_train, epochs=config.EPOCHS, validation_data=validation)
   return pd.DataFrame.from_dict(train_history.history)
 
+  # e = shap.DeepExplainer(model, X_train)
+  # shap_values = e.shap_values(validation[0])
+  # shap.initjs()
+
 
 def predict(model: Sequential, x: np.ndarray, days: int):
-  # Normalize x.
-  x_norm, _, x_max, x_min = main.normalize_data(x)
   predictions = np.array([])
 
   # Make recursive predictions.
   for day in range(days):
-    pred_norm = model.predict(x_norm.reshape((1, *x_norm.shape, 1)))
-    pred_norm = pred_norm.flatten()
-    pred = main.de_normalize(pred_norm, x_max, x_min)
+    pred = model.predict(x.reshape(1, config.INPUTDAYS, 18))
     predictions = np.append(predictions, pred)
-    x = main.de_normalize(x_norm, x_max, x_min)
     x = np.append(x[1:], pred)
-    x_norm, _, x_max, x_min = main.normalize_data(x)
   return predictions
