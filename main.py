@@ -29,14 +29,14 @@ def group_to_cases(group, overlapping: bool = False):
   """
 
   if overlapping:
-    y = group['total_cases'].iloc[config.INPUTDAYS:].to_numpy()
+    y = group['ConfirmedCases'].iloc[config.INPUTDAYS:].to_numpy()
     x = np.array([]).reshape(-1, config.INPUTDAYS)
     for row in range(group.shape[0] - config.INPUTDAYS):
-      curr_x = group['total_cases'].iloc[row:row + config.INPUTDAYS].to_numpy()
+      curr_x = group['ConfirmedCases'].iloc[row:row + config.INPUTDAYS].to_numpy()
       x = np.concatenate((x, curr_x.reshape(1, config.INPUTDAYS)), axis=0)
   else:
-    y = group['total_cases'].iloc[config.INPUTDAYS::config.INPUTDAYS + 1].to_numpy()
-    x = group['total_cases'].to_numpy().reshape(-1, config.INPUTDAYS + 1)
+    y = group['ConfirmedCases'].iloc[config.INPUTDAYS::config.INPUTDAYS + 1].to_numpy()
+    x = group['ConfirmedCases'].to_numpy().reshape(-1, config.INPUTDAYS + 1)
     x = np.delete(x, config.INPUTDAYS, 1)
   return x, y
 
@@ -46,7 +46,7 @@ def create_supervised_data_set(data: pd.DataFrame, overlapping: bool = False):
   :param data:
   :return: supervised data set (input and target)
   """
-  data = data[data['total_cases'] > config.INFECTED_LOWER].groupby('location')
+  data = data[data['ConfirmedCases'] > config.INFECTED_LOWER].groupby('CountryName')
   x, y = groups_to_cases(data, overlapping=overlapping)
   return x, y
 
@@ -103,7 +103,7 @@ def load_and_clean_data():
   :return:
   """
   data = pd.read_csv(config.DATA_PATH)
-  data['date'] = pd.DatetimeIndex(data['date'])
+  data['date'] = pd.DatetimeIndex(data['Date'])
   data = data.fillna(0)
   return data
 
@@ -152,16 +152,16 @@ def visualize_predictions(cases: pd.DataFrame):
       output_start = start_day + config.INPUTDAYS
       output_end = output_start + prediction_length
 
-      predictions = lstm.predict(model, cases.iloc[start_day:output_start]['total_cases'].to_numpy(),
+      predictions = lstm.predict(model, cases.iloc[start_day:output_start]['ConfirmedCases'].to_numpy(),
                                  prediction_length)
       for day in range(predictions.shape[0]):
-        print(data['date'].iloc[output_start + day], predictions[day], cases.iloc[output_start + day]['total_cases'])
+        print(data['date'].iloc[output_start + day], predictions[day], cases.iloc[output_start + day]['ConfirmedCases'])
       draw_graph(
         {'x': cases['date'].iloc[output_start:output_end], 'y': predictions.tolist(), 'name': 'prediction'},
-        {'x': cases['date'].iloc[:start_day], 'y': cases_norway['total_cases'].iloc[:start_day], 'name': 'start'},
-        {'x': cases['date'].iloc[start_day:output_start], 'y': cases['total_cases'].iloc[start_day:output_start],
+        {'x': cases['date'].iloc[:start_day], 'y': cases_norway['ConfirmedCases'].iloc[:start_day], 'name': 'start'},
+        {'x': cases['date'].iloc[start_day:output_start], 'y': cases['ConfirmedCases'].iloc[start_day:output_start],
          'name': 'input'},
-        {'x': cases['date'].iloc[output_start:output_end], 'y': cases['total_cases'].iloc[output_start:output_end],
+        {'x': cases['date'].iloc[output_start:output_end], 'y': cases['ConfirmedCases'].iloc[output_start:output_end],
          'name': 'target'},
       )
     except:
@@ -178,7 +178,7 @@ if __name__ == '__main__':
   data = load_and_clean_data()
   # visualize_spread_for_countries(data)
 
-  x, y = create_supervised_data_set(data[data['location'] != 'Norway'], overlapping=True)
+  x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
   x_norm, y_norm, x_max, x_min = normalize_data(x, y)
   X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
 

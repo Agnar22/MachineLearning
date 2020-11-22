@@ -1,5 +1,5 @@
 # Data parameters.
-DATA_PATH = 'Data/owid-covid-data.csv'
+DATA_PATH = 'Data/OxCGRT_latest.csv'
 COUNTRIES = ['Norway']
 INPUTDAYS = 21
 VALIDATION_SIZE = 0.2
