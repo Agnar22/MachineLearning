@@ -1,6 +1,7 @@
 from keras.layers import Dense, LSTM, Dropout
 from keras.models import Sequential
 from keras.optimizers import Adam
+from keras.callbacks import ModelCheckpoint
 import numpy as np
 import pandas as pd
 import config
