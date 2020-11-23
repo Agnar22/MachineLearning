@@ -3,6 +3,7 @@ from keras.models import Sequential
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from typing import List
+import matplotlib.pyplot as plt
 import shap
 import numpy as np
 import pandas as pd
@@ -50,13 +51,14 @@ def train_model(model: Sequential, X_train: np.ndarray, Y_train: np.ndarray, val
 
 
 def calculate_shap(model: Sequential, X_train: np.ndarray, X_test: np.ndarray, features: List[str]):
+  plt.close('all')
   explainer = shap.DeepExplainer(model, X_train)
   shap_values = explainer.shap_values(X_test)
   shap.initjs()
   shap_values_2d = shap_values[0].reshape(-1, len(config.FEATURES))
   X_test_2d = X_test.reshape(-1, len(config.FEATURES))
 
-  shap.summary_plot(shap_values_2d, X_test_2d, features)
+  shap.summary_plot(shap_values_2d[:, :len(config.FEATURES)-1], X_test_2d[:, :len(config.FEATURES)-1], features[:-1])
 
 
 
