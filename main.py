@@ -2,6 +2,7 @@ import pandas as pd
 import config
 import numpy as np
 import lstm
+import visualization
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
@@ -119,13 +120,17 @@ if __name__ == '__main__':
   x_norm, y_norm = x, y
   X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
 
-  X_train, X_test, Y_train, Y_test, scaler = normalize_dataset(X_train, X_test, Y_train, Y_test)
+  X_train_norm, X_test_norm, Y_train_norm, Y_test_norm, scaler = normalize_dataset(X_train.copy(), X_test.copy(), Y_train.copy(), Y_test.copy())
 
   model = lstm.create_model()
-  train_hist = lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))
-  predictions = model.predict(X_train)
-  loss = (predictions - Y_train) ** 2
-  lstm.calculate_shap(model, X_train[0:1000], X_test[0:1000], config.FEATURES)
+  train_hist = lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_test_norm, Y_test_norm))
+  visualization.draw_graph(
+    {'x': train_hist.index, 'y': train_hist['loss'], 'name': 'training'},
+    {'x': train_hist.index, 'y': train_hist['val_loss'], 'name': 'validation'}
+  )
+  predictions = model.predict(X_train_norm)
+  loss = (predictions - Y_train_norm) ** 2
+  lstm.calculate_shap(model, X_train_norm[0:1000], X_test_norm[0:1000], config.FEATURES)
   # plt.boxplot(Y_test)
   # plt.show()
 
