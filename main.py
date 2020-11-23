@@ -63,18 +63,28 @@ def load_and_clean_data():
   :return:
   """
   data = pd.read_csv(config.DATA_PATH)
-  data['Date'] = pd.to_datetime(data['Date'], format='%Y%m%d')
+
+  # Remove the last two weeks (data is updated once per week, therefore the maximum gap would be two weeks)
+  data = data[data['Date'] < 20201015]
 
   # Remove flags.
-  data = data.drop(list(filter(lambda x: 'flag' in x.lower(), data.columns)), axis=1)
+  data.drop(list(filter(lambda x: 'flag' in x.lower(), data.columns)), axis=1, inplace = True)
 
-  data = data.drop(['M1_Wildcard'], axis=1)
+  data.drop(['M1_Wildcard'], axis=1, inplace = True)
+
+  # Drop states
+  data = data[pd.isnull(data['RegionName'])]
 
   # Keep relevant columns.
   data = data[list(filter(lambda x: '_' in x or x in ['CountryName', 'Date', 'ConfirmedCases'], data.columns))]
 
-  # TODO: check if this is correct.
-  data = data.fillna(0)
+  # Fill na with forward fill
+  data.loc[data['Date'] == 20200301] = data.loc[data['Date'] == 20200301].fillna(0)
+  data.fillna(method='ffill', inplace = True)
+
+  # Format date
+  data['Date'] = pd.to_datetime(data['Date'], format='%Y%m%d')
+
   return data
 
 
