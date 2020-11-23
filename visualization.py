@@ -1,6 +1,6 @@
 import config
 import pandas as pd
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import lstm
 from keras.models import Sequential
 
@@ -40,7 +40,7 @@ def draw_graph(*args, x: str = 'x', y: str = 'y'):
   plt.show(block=False)
 
 
-def visualize_predictions(cases: pd.DataFrame, model: Sequential, cases_norway: pd.Dataframe):
+def visualize_predictions(cases: pd.DataFrame, model: Sequential, cases_norway: pd.DataFrame):
   loop = True
   while loop:
     try:
