@@ -91,16 +91,15 @@ def load_and_clean_data():
   return data
 
 
-def normalize_dataset(X_train, X_test, Y_train, Y_test):
+def normalize_dataset(X,Y):
   scalers = []
-  for col in range(X_train.shape[2]):
+  for col in range(X.shape[2]):
     scaler = MinMaxScaler()
-    X_train[:,:,col] = normalize_data(X_train[:, :, col], scaler).reshape(*X_train.shape[:2])
-    X_test[:,:,col] = normalize_data(X_test[:, :, col], scaler).reshape(*X_test.shape[:2])
+    X[:,:,col] = normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
     scalers.append(scaler)
-  Y_train_norm = normalize_data(Y_train, scaler)
-  Y_test_norm = normalize_data(Y_test, scaler)
-  return X_train, X_test, Y_train_norm, Y_test_norm, scalers
+  Y_norm = normalize_data(Y, scaler)
+  Y_norm = normalize_data(Y, scaler)
+  return X, Y, scalers
 
 
 def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
@@ -125,51 +124,44 @@ def test_normalize():
 def cross_validation(x, y):
   lstm_model = KerasClassifier(build_fn=lstm.create_model, verbose=2)
 
+  #
   epochs = [1]#[50, 100, 150]
-  batches = [5,10]#[5, 10, 20]
-  params = dict(epochs=epochs, batch_size=batches)
+  batches = [1]#[5, 10, 20]
+  #
+  learn_rate = [0.001]#[0.001, 0.01, 0.1, 0.2, 0.3]
+  #
+  activation = ['relu']#['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
+  #
+  dropout_rate = [0.2]#[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  #
 
+  params = dict(epochs=epochs, batch_size=batches, learn_rate=learn_rate, activation=activation, dropout_rate=dropout_rate)
   clf = GridSearchCV(estimator=lstm_model, param_grid=params)
   grid_result = clf.fit(x, y)
 
   # summarize results
   print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_)) # average of r2 scores
 
-  means = grid_result.cv_results_['mean_test_score']
-  stds = grid_result.cv_results_['std_test_score']
-  params = grid_result.cv_results_['params']
-  for mean, stdev, param in zip(means, stds, params):
-    print("%f (%f) with: %r" % (mean, stdev, param))
+  return grid_result.best_params_
 
 def run_pipeline():
   test_normalize()
 
   data = load_and_clean_data()
-  # visualize_spread_for_countries(data)
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
 
-  cross_validation(x, y)
+  x_norm, y_norm, scaler = normalize_dataset(x.copy(), y.copy())
 
-  return
+  best_params = cross_validation(x_norm, y_norm)
 
-  x_norm, y_norm = x, y
-  
-  X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
+  model = lstm.create_model(best_params) #TODO
 
-  X_train_norm, X_test_norm, Y_train_norm, Y_test_norm, scaler = normalize_dataset(X_train.copy(), X_test.copy(), Y_train.copy(), Y_test.copy())
-
-  # model = lstm.create_model()
-  # train_hist = lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_test_norm, Y_test_norm))
-  # visualization.draw_graph(
-  #   {'x': train_hist.index, 'y': train_hist['loss'], 'name': 'training'},
-  #   {'x': train_hist.index, 'y': train_hist['val_loss'], 'name': 'validation'}
-  # )
-  predictions = model.predict(X_train_norm)
-  loss = (predictions - Y_train_norm) ** 2
+  predictions = model.predict(x_norm)
+  loss = (predictions - y_norm) ** 2
 
 
-  lstm.calculate_shap(model, X_train_norm[0:1000], X_test_norm[0:1000], config.FEATURES)
+  lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
   # plt.boxplot(Y_test)
   # plt.show()
 
