@@ -79,7 +79,7 @@ def load_and_clean_data():
   data = data[list(filter(lambda x: '_' in x or x in ['CountryName', 'Date', 'ConfirmedCases'], data.columns))]
 
   # Fill na with forward fill
-  data.loc[data['Date'] == 20200301] = data.loc[data['Date'] == 20200301].fillna(0)
+  data.loc[data['Date'] == 20200101] = data.loc[data['Date'] == 20200101].fillna(0)
   data.fillna(method='ffill', inplace = True)
 
   # Format date
