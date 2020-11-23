@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GridSearchCV, cross_val_score, KFold
 from sklearn.metrics import accuracy_score
+from dataprocessing import difference, undo_difference
 
 
 def groups_to_cases(groups, overlapping: bool = False):
@@ -19,7 +20,7 @@ def groups_to_cases(groups, overlapping: bool = False):
   y = np.array([])
   x = np.array([]).reshape(-1, config.INPUTDAYS, len(config.FEATURES))
   for _, group in groups:
-    group["NewCases"] = group["ConfirmedCases"].diff().fillna(0)
+    group["ConfirmedCases"] = difference(group["ConfirmedCases"], 2)
     x_group, y_group = group_to_cases(group, overlapping=overlapping)
     y = np.concatenate((y, y_group))
     x = np.concatenate((x, x_group))
@@ -49,17 +50,6 @@ def create_supervised_data_set(data: pd.DataFrame, overlapping: bool = False):
   data = data[data['ConfirmedCases'] > config.INFECTED_LOWER].groupby('CountryName')
   x, y = groups_to_cases(data, overlapping=overlapping)
   return x, y
-
-
-# Split dataset into testing & training
-def split_data(x: np.ndarray, y: np.ndarray):
-  """
-  :param x:
-  :param y:
-  :return:
-  """
-  X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=config.VALIDATION_SIZE, random_state=2)
-  return X_train, X_test, Y_train, Y_test
 
 
 def load_and_clean_data():
@@ -102,7 +92,6 @@ def normalize_dataset(X,Y):
   Y_norm = normalize_data(Y, scaler)
   return X, Y, scalers
 
-
 def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
   """
   :param data:
@@ -110,31 +99,20 @@ def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
   """
   return scaler.fit_transform(data.reshape(-1, 1)).reshape(-1)
 
-
 def de_normalize(data: np.ndarray, scaler: MinMaxScaler):
   return scaler.inverse_transform(data.reshape(-1, 1)).reshape(-1)
 
+def cross_validation(x, y, i = 1):
+  inner_cv = KFold(n_splits=5, shuffle=True, random_state=i)
 
-def test_normalize():
-  scaler = MinMaxScaler()
-  unnormalized = np.array([2.0, 3.5, 5.0])
-  normalized = np.array([0.0, 0.5, 1.0])
-  assert np.allclose(normalize_data(unnormalized, scaler), normalized)
-  assert np.allclose(de_normalize(normalized, scaler), unnormalized)
-
-def cross_validation(x, y, CV = None):
   lstm_model = KerasClassifier(build_fn=lstm.create_model, verbose=2)
 
-  #
   learn_rate = [0.001]#[0.001, 0.01, 0.1, 0.2, 0.3]
-  #
   activation = ['relu']#['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
-  #
   dropout_rate = [0.2]#[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-  #
 
   params = dict(learn_rate=learn_rate, activation=activation, dropout_rate=dropout_rate)
-  clf = GridSearchCV(estimator=lstm_model, param_grid=params, cv = CV)
+  clf = GridSearchCV(estimator=lstm_model, param_grid=params, cv = inner_cv)
   grid_result = clf.fit(x, y)
 
   # summarize results
@@ -149,10 +127,9 @@ def nested_cross_validation(x, y):
   nested_scores = []
 
   for i in range(NUM_TRIALS):
-    inner_cv = KFold(n_splits=5, shuffle=True, random_state=i)
     outer_cv = KFold(n_splits=5, shuffle=True, random_state=i)
 
-    params, clf = cross_validation(x, y, inner_cv)
+    params, clf = cross_validation(x, y, i)
     non_nested_scores.append(clf.best_score_)
 
     # Nested CV with parameter optimization
@@ -168,8 +145,6 @@ def nested_cross_validation(x, y):
   
 
 def run_pipeline():
-  test_normalize()
-
   data = load_and_clean_data()
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
@@ -182,7 +157,7 @@ def run_pipeline():
 
   model = lstm.create_model(**best_params) 
 
-  predictions = model.predict(x_norm)
+  predictions = undo_difference(model.predict(x_norm), 2)
   loss = (predictions - y_norm) ** 2
 
 
