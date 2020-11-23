@@ -3,6 +3,7 @@ import config
 import numpy as np
 import lstm
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 
 
 def groups_to_cases(groups, overlapping: bool = False):
@@ -45,40 +46,6 @@ def create_supervised_data_set(data: pd.DataFrame, overlapping: bool = False):
   return x, y
 
 
-def normalize_data(x: np.ndarray, y: np.ndarray = None):
-  """
-  :param x:
-  :param y:
-  :return: normalized values for x
-  """
-
-  dim = len(x.shape) - 1
-
-  x_max, x_min = (x.max(axis=dim, keepdims=True), x.min(axis=dim, keepdims=True))
-  difference = np.clip(x_max - x_min, 0.000001, None)
-
-  # Normalize y.
-  if (y is not None):
-    y = y.reshape((-1, 1))
-    y = (2 * (y - x.min(axis=dim, keepdims=True))) / difference - 1
-
-  # Normalize the values from -1 to 1.
-  x = (2 * (x - x.min(axis=dim, keepdims=True))) / difference - 1
-
-  # Drop values that are normalized wrong.
-  # for row, val in enumerate(np.where(y > 10)):
-  #  print("over 10", row, val, x[val], y[val])
-
-  if (y is not None):
-    invalid_rows = np.where((y > 2) | (y < 1))
-    x_max = np.delete(x_max, invalid_rows, axis=0)
-    x_min = np.delete(x_min, invalid_rows, axis=0)
-    x = np.delete(x, invalid_rows, axis=0)
-    y = np.delete(y, invalid_rows, axis=0)
-
-  return x, y, x_max, x_min
-
-
 # Split dataset into testing & training
 def split_data(x: np.ndarray, y: np.ndarray):
   """
@@ -111,11 +78,26 @@ def load_and_clean_data():
 
 
 
-def de_normalize(x: np.ndarray, x_max: np.ndarray, x_min: np.ndarray):
-  return (x + 1) * (x_max - x_min) / 2 + x_min
+def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
+  """
+  :param data:
+  :return: normalized values for x
+  """
+  return scaler.fit_transform(data.reshape(-1, 1)).reshape(-1)
 
+def de_normalize(data: np.ndarray, scaler: MinMaxScaler):
+  return scaler.inverse_transform(data.reshape(-1, 1)).reshape(-1)
+
+def test_normalize():
+  scaler = MinMaxScaler()
+  unnormalized = np.array([2.0,3.5,5.0])
+  normalized = np.array([0.0,0.5,1.0])
+  assert np.allclose(normalize_data(unnormalized, scaler), normalized)
+  assert np.allclose(de_normalize(normalized, scaler), unnormalized)
 
 if __name__ == '__main__':
+  test_normalize()
+
   data = load_and_clean_data()
   data = data.iloc[0:200]
   # visualize_spread_for_countries(data)
