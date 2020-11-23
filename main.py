@@ -77,6 +77,17 @@ def load_and_clean_data():
   return data
 
 
+def normalize_dataset(X_train, X_test, Y_train, Y_test):
+  scalers = []
+  for col in range(X_train.shape[2]):
+    scaler = MinMaxScaler()
+    X_train[:,:,col] = normalize_data(X_train[:, :, col], scaler).reshape(*X_train.shape[:2])
+    X_test[:,:,col] = normalize_data(X_test[:, :, col], scaler).reshape(*X_test.shape[:2])
+    scalers.append(scaler)
+  Y_train_norm = normalize_data(Y_train, scaler)
+  Y_test_norm = normalize_data(Y_test, scaler)
+  return X_train, X_test, Y_train_norm, Y_test_norm, scalers
+
 
 def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
   """
@@ -85,31 +96,36 @@ def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
   """
   return scaler.fit_transform(data.reshape(-1, 1)).reshape(-1)
 
+
 def de_normalize(data: np.ndarray, scaler: MinMaxScaler):
   return scaler.inverse_transform(data.reshape(-1, 1)).reshape(-1)
 
+
 def test_normalize():
   scaler = MinMaxScaler()
-  unnormalized = np.array([2.0,3.5,5.0])
-  normalized = np.array([0.0,0.5,1.0])
+  unnormalized = np.array([2.0, 3.5, 5.0])
+  normalized = np.array([0.0, 0.5, 1.0])
   assert np.allclose(normalize_data(unnormalized, scaler), normalized)
   assert np.allclose(de_normalize(normalized, scaler), unnormalized)
+
 
 if __name__ == '__main__':
   test_normalize()
 
   data = load_and_clean_data()
-  data = data.iloc[0:200]
   # visualize_spread_for_countries(data)
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
   x_norm, y_norm = x, y
   X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
 
+  X_train, X_test, Y_train, Y_test, scaler = normalize_dataset(X_train, X_test, Y_train, Y_test)
+
   model = lstm.create_model()
+  train_hist = lstm.train_model(model, X_train, Y_train, validation=(X_test, Y_test))
   predictions = model.predict(X_train)
   loss = (predictions - Y_train) ** 2
-  lstm.calculate_shap(model, X_train, X_test, config.FEATURES)
+  lstm.calculate_shap(model, X_train[0:1000], X_test[0:1000], config.FEATURES)
   # plt.boxplot(Y_test)
   # plt.show()
 

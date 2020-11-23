@@ -30,7 +30,7 @@ def create_model():
 def train_model(model: Sequential, X_train: np.ndarray, Y_train: np.ndarray, validation=None):
   if config.SAVE:
     model_checkpoint_callback = ModelCheckpoint(
-      filepath='Models/LSTM/model_{epoch}_{val_loss:.4f}.h5',
+      filepath='Models/model_{epoch}_{val_loss:.4f}.h5',
       save_weights_only=False,
       monitor='val_loss',
       mode='auto',
