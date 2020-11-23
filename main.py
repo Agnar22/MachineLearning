@@ -16,6 +16,7 @@ def groups_to_cases(groups, overlapping: bool = False):
   y = np.array([])
   x = np.array([]).reshape(-1, config.INPUTDAYS, len(config.FEATURES))
   for _, group in groups:
+    group["NewCases"] = group["ConfirmedCases"].diff().fillna(0)
     x_group, y_group = group_to_cases(group, overlapping=overlapping)
     y = np.concatenate((y, y_group))
     x = np.concatenate((x, x_group))
