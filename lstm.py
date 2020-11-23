@@ -11,19 +11,19 @@ import config
 import main
 
 
-def create_model():
+def create_model(learn_rate, activation, dropout_rate):
   model = Sequential()
   model.add(LSTM(config.UNITS, input_shape=(config.INPUTDAYS, len(config.FEATURES)), return_sequences=False))
-  model.add(Dropout(0.25))
-  model.add(Dense(256, activation='relu'))
-  model.add(Dropout(0.25))
-  model.add(Dense(128, activation='relu'))
-  model.add(Dropout(0.25))
-  model.add(Dense(128, activation='relu'))
+  model.add(Dropout(dropout_rate))
+  model.add(Dense(256, activation=activation))
+  model.add(Dropout(dropout_rate))
+  model.add(Dense(128, activation=activation))
+  model.add(Dropout(dropout_rate))
+  model.add(Dense(128, activation=activation))
   model.add(Dense(1, activation='linear'))
-  optim = Adam(lr=0.0001)
+  optim = Adam(lr=learn_rate)
   # optim = RMSprop()
-  model.compile(loss='logcosh', optimizer=optim)
+  model.compile(loss='logcosh', optimizer=optim, metrics=["accuracy"])
   model.summary()
   return model
 

@@ -3,8 +3,11 @@ import config
 import numpy as np
 import lstm
 import visualization
+from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import GridSearchCV, cross_val_score, KFold
+from sklearn.metrics import accuracy_score
 
 
 def groups_to_cases(groups, overlapping: bool = False):
@@ -89,16 +92,15 @@ def load_and_clean_data():
   return data
 
 
-def normalize_dataset(X_train, X_test, Y_train, Y_test):
+def normalize_dataset(X,Y):
   scalers = []
-  for col in range(X_train.shape[2]):
+  for col in range(X.shape[2]):
     scaler = MinMaxScaler()
-    X_train[:,:,col] = normalize_data(X_train[:, :, col], scaler).reshape(*X_train.shape[:2])
-    X_test[:,:,col] = normalize_data(X_test[:, :, col], scaler).reshape(*X_test.shape[:2])
+    X[:,:,col] = normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
     scalers.append(scaler)
-  Y_train_norm = normalize_data(Y_train, scaler)
-  Y_test_norm = normalize_data(Y_test, scaler)
-  return X_train, X_test, Y_train_norm, Y_test_norm, scalers
+  Y_norm = normalize_data(Y, scaler)
+  Y_norm = normalize_data(Y, scaler)
+  return X, Y, scalers
 
 
 def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
@@ -120,28 +122,71 @@ def test_normalize():
   assert np.allclose(normalize_data(unnormalized, scaler), normalized)
   assert np.allclose(de_normalize(normalized, scaler), unnormalized)
 
+def cross_validation(x, y, CV = None):
+  lstm_model = KerasClassifier(build_fn=lstm.create_model, verbose=2)
 
-if __name__ == '__main__':
+  #
+  learn_rate = [0.001]#[0.001, 0.01, 0.1, 0.2, 0.3]
+  #
+  activation = ['relu']#['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
+  #
+  dropout_rate = [0.2]#[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  #
+
+  params = dict(learn_rate=learn_rate, activation=activation, dropout_rate=dropout_rate)
+  clf = GridSearchCV(estimator=lstm_model, param_grid=params, cv = CV)
+  grid_result = clf.fit(x, y)
+
+  # summarize results
+  print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_)) # average of r2 scores
+
+  return grid_result.best_params_, clf
+
+def nested_cross_validation(x, y):
+  NUM_TRIALS = 5
+
+  non_nested_scores = []
+  nested_scores = []
+
+  for i in range(NUM_TRIALS):
+    inner_cv = KFold(n_splits=5, shuffle=True, random_state=i)
+    outer_cv = KFold(n_splits=5, shuffle=True, random_state=i)
+
+    params, clf = cross_validation(x, y, inner_cv)
+    non_nested_scores.append(clf.best_score_)
+
+    # Nested CV with parameter optimization
+    nested_score = cross_val_score(clf, X=x, y=y, cv=outer_cv)
+    nested_scores.append(nested_score.mean())
+
+  score_difference = np.array(non_nested_scores) - np.array(nested_scores)
+
+  print("CV scores:", non_nested_scores)
+  print("NCV scores:", nested_scores)
+  print("Average difference of {:6f} with std. dev. of {:6f}."
+        .format(score_difference.mean(), score_difference.std()))
+  
+
+def run_pipeline():
   test_normalize()
 
   data = load_and_clean_data()
-  # visualize_spread_for_countries(data)
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
-  x_norm, y_norm = x, y
-  X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
 
-  X_train_norm, X_test_norm, Y_train_norm, Y_test_norm, scaler = normalize_dataset(X_train.copy(), X_test.copy(), Y_train.copy(), Y_test.copy())
+  x_norm, y_norm, scaler = normalize_dataset(x.copy(), y.copy())
 
-  model = lstm.create_model()
-  train_hist = lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_test_norm, Y_test_norm))
-  visualization.draw_graph(
-    {'x': train_hist.index, 'y': train_hist['loss'], 'name': 'training'},
-    {'x': train_hist.index, 'y': train_hist['val_loss'], 'name': 'validation'}
-  )
-  predictions = model.predict(X_train_norm)
-  loss = (predictions - Y_train_norm) ** 2
-  lstm.calculate_shap(model, X_train_norm[0:1000], X_test_norm[0:1000], config.FEATURES)
+  nested_cross_validation(x_norm, y_norm)
+  #best_params = cross_validation(x_norm, y_norm)
+  best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
+
+  model = lstm.create_model(**best_params) 
+
+  predictions = model.predict(x_norm)
+  loss = (predictions - y_norm) ** 2
+
+
+  lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
   # plt.boxplot(Y_test)
   # plt.show()
 
@@ -149,3 +194,6 @@ if __name__ == '__main__':
   #  print(pos, X_train[pos], Y_train[pos], predictions[pos], loss[pos])
 
   cases_norway = data[data['CountryName'] == 'Norway']
+
+if __name__ == '__main__':
+  run_pipeline()
