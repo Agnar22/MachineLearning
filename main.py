@@ -7,6 +7,7 @@ from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GridSearchCV, cross_val_score, KFold
+from sklearn.metrics import accuracy_score
 
 
 def groups_to_cases(groups, overlapping: bool = False):
@@ -121,12 +122,9 @@ def test_normalize():
   assert np.allclose(normalize_data(unnormalized, scaler), normalized)
   assert np.allclose(de_normalize(normalized, scaler), unnormalized)
 
-def cross_validation(x, y):
+def cross_validation(x, y, CV = None):
   lstm_model = KerasClassifier(build_fn=lstm.create_model, verbose=2)
 
-  #
-  epochs = [1]#[50, 100, 150]
-  batches = [1]#[5, 10, 20]
   #
   learn_rate = [0.001]#[0.001, 0.01, 0.1, 0.2, 0.3]
   #
@@ -135,14 +133,39 @@ def cross_validation(x, y):
   dropout_rate = [0.2]#[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
   #
 
-  params = dict(epochs=epochs, batch_size=batches, learn_rate=learn_rate, activation=activation, dropout_rate=dropout_rate)
-  clf = GridSearchCV(estimator=lstm_model, param_grid=params)
+  params = dict(learn_rate=learn_rate, activation=activation, dropout_rate=dropout_rate)
+  clf = GridSearchCV(estimator=lstm_model, param_grid=params, cv = CV)
   grid_result = clf.fit(x, y)
 
   # summarize results
   print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_)) # average of r2 scores
 
-  return grid_result.best_params_
+  return grid_result.best_params_, clf
+
+def nested_cross_validation(x, y):
+  NUM_TRIALS = 5
+
+  non_nested_scores = []
+  nested_scores = []
+
+  for i in range(NUM_TRIALS):
+    inner_cv = KFold(n_splits=5, shuffle=True, random_state=i)
+    outer_cv = KFold(n_splits=5, shuffle=True, random_state=i)
+
+    params, clf = cross_validation(x, y, inner_cv)
+    non_nested_scores.append(clf.best_score_)
+
+    # Nested CV with parameter optimization
+    nested_score = cross_val_score(clf, X=x, y=y, cv=outer_cv)
+    nested_scores.append(nested_score.mean())
+
+  score_difference = np.array(non_nested_scores) - np.array(nested_scores)
+
+  print("CV scores:", non_nested_scores)
+  print("NCV scores:", nested_scores)
+  print("Average difference of {:6f} with std. dev. of {:6f}."
+        .format(score_difference.mean(), score_difference.std()))
+  
 
 def run_pipeline():
   test_normalize()
@@ -153,9 +176,11 @@ def run_pipeline():
 
   x_norm, y_norm, scaler = normalize_dataset(x.copy(), y.copy())
 
-  best_params = cross_validation(x_norm, y_norm)
+  nested_cross_validation(x_norm, y_norm)
+  #best_params = cross_validation(x_norm, y_norm)
+  best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
 
-  model = lstm.create_model(best_params) #TODO
+  model = lstm.create_model(**best_params) 
 
   predictions = model.predict(x_norm)
   loss = (predictions - y_norm) ** 2
