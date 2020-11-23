@@ -3,8 +3,10 @@ import config
 import numpy as np
 import lstm
 import visualization
+from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import GridSearchCV, cross_val_score, KFold
 
 
 def groups_to_cases(groups, overlapping: bool = False):
@@ -120,27 +122,53 @@ def test_normalize():
   assert np.allclose(normalize_data(unnormalized, scaler), normalized)
   assert np.allclose(de_normalize(normalized, scaler), unnormalized)
 
+def cross_validation(x, y):
+  lstm_model = KerasClassifier(build_fn=lstm.create_model, verbose=2)
 
-if __name__ == '__main__':
+  epochs = [1]#[50, 100, 150]
+  batches = [5,10]#[5, 10, 20]
+  params = dict(epochs=epochs, batch_size=batches)
+
+  clf = GridSearchCV(estimator=lstm_model, param_grid=params)
+  grid_result = clf.fit(x, y)
+
+  # summarize results
+  print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_)) # average of r2 scores
+
+  means = grid_result.cv_results_['mean_test_score']
+  stds = grid_result.cv_results_['std_test_score']
+  params = grid_result.cv_results_['params']
+  for mean, stdev, param in zip(means, stds, params):
+    print("%f (%f) with: %r" % (mean, stdev, param))
+
+def run_pipeline():
   test_normalize()
 
   data = load_and_clean_data()
   # visualize_spread_for_countries(data)
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
+
+  cross_validation(x, y)
+
+  return
+
   x_norm, y_norm = x, y
+  
   X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
 
   X_train_norm, X_test_norm, Y_train_norm, Y_test_norm, scaler = normalize_dataset(X_train.copy(), X_test.copy(), Y_train.copy(), Y_test.copy())
 
-  model = lstm.create_model()
-  train_hist = lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_test_norm, Y_test_norm))
-  visualization.draw_graph(
-    {'x': train_hist.index, 'y': train_hist['loss'], 'name': 'training'},
-    {'x': train_hist.index, 'y': train_hist['val_loss'], 'name': 'validation'}
-  )
+  # model = lstm.create_model()
+  # train_hist = lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_test_norm, Y_test_norm))
+  # visualization.draw_graph(
+  #   {'x': train_hist.index, 'y': train_hist['loss'], 'name': 'training'},
+  #   {'x': train_hist.index, 'y': train_hist['val_loss'], 'name': 'validation'}
+  # )
   predictions = model.predict(X_train_norm)
   loss = (predictions - Y_train_norm) ** 2
+
+
   lstm.calculate_shap(model, X_train_norm[0:1000], X_test_norm[0:1000], config.FEATURES)
   # plt.boxplot(Y_test)
   # plt.show()
@@ -149,3 +177,6 @@ if __name__ == '__main__':
   #  print(pos, X_train[pos], Y_train[pos], predictions[pos], loss[pos])
 
   cases_norway = data[data['CountryName'] == 'Norway']
+
+if __name__ == '__main__':
+  run_pipeline()
