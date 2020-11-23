@@ -151,7 +151,7 @@ def run_pipeline():
 
   x_norm, y_norm, scaler = normalize_dataset(x.copy(), y.copy())
 
-  nested_cross_validation(x_norm, y_norm)
+  #nested_cross_validation(x_norm, y_norm)
   #best_params = cross_validation(x_norm, y_norm)
   best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
 
