@@ -6,7 +6,7 @@ import visualization
 from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import GridSearchCV, cross_val_score, KFold
+from sklearn.model_selection import GridSearchCV, cross_val_score, TimeSeriesSplit
 from sklearn.metrics import accuracy_score
 from dataprocessing import difference, undo_difference
 from visualization import draw_graph
@@ -21,7 +21,7 @@ def groups_to_cases(groups, overlapping: bool = False):
   y = np.array([])
   x = np.array([]).reshape(-1, config.INPUTDAYS, len(config.FEATURES))
   for _, group in groups:
-    group["ConfirmedCases"] = difference(group["ConfirmedCases"], 2)
+    #group["ConfirmedCases"] = difference(group["ConfirmedCases"], 2)
     x_group, y_group = group_to_cases(group, overlapping=overlapping)
     y = np.concatenate((y, y_group))
     x = np.concatenate((x, x_group))
@@ -102,8 +102,8 @@ def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
 def de_normalize(data: np.ndarray, scaler: MinMaxScaler):
   return scaler.inverse_transform(data.reshape(-1, 1)).reshape(-1)
 
-def cross_validation(x, y, i = 1):
-  inner_cv = KFold(n_splits=5, shuffle=True, random_state=i)
+def cross_validation(x, y):
+  inner_cv = TimeSeriesSplit(n_splits=5)
 
   lstm_model = KerasClassifier(build_fn=lstm.create_model, verbose=2)
 
@@ -126,10 +126,10 @@ def nested_cross_validation(x, y):
   non_nested_scores = []
   nested_scores = []
 
-  for i in range(NUM_TRIALS):
-    outer_cv = KFold(n_splits=5, shuffle=True, random_state=i)
+  for _ in range(NUM_TRIALS):
+    outer_cv = TimeSeriesSplit(n_splits=5)
 
-    _, clf = cross_validation(x, y, i)
+    _, clf = cross_validation(x, y)
     non_nested_scores.append(clf.best_score_)
 
     # Nested CV with parameter optimization
@@ -157,7 +157,7 @@ def run_pipeline():
 
   model,_ = cross_validation(x_norm, y_norm)#lstm.create_model(**best_params) 
 
-  predictions = undo_difference(model.predict(x_norm), 2)
+  predictions = model.predict(x_norm)
   loss = (predictions - y_norm) ** 2
 
   lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
