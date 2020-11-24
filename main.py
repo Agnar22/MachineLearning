@@ -9,6 +9,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GridSearchCV, cross_val_score, KFold
 from sklearn.metrics import accuracy_score
 from dataprocessing import difference, undo_difference
+from visualization import draw_graph
 
 
 def groups_to_cases(groups, overlapping: bool = False):
@@ -88,8 +89,7 @@ def normalize_dataset(X,Y):
     scaler = MinMaxScaler()
     X[:,:,col] = normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
     scalers.append(scaler)
-  Y_norm = normalize_data(Y, scaler)
-  Y_norm = normalize_data(Y, scaler)
+  Y = normalize_data(Y, scaler) # using the last scaler as it is the confirmed case scaler
   return X, Y, scalers
 
 def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
@@ -149,7 +149,7 @@ def run_pipeline():
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
 
-  x_norm, y_norm, scaler = normalize_dataset(x.copy(), y.copy())
+  x_norm, y_norm, scalers = normalize_dataset(x.copy(), y.copy())
 
   #nested_cross_validation(x_norm, y_norm)
   #best_params = cross_validation(x_norm, y_norm)
@@ -160,6 +160,8 @@ def run_pipeline():
   predictions = undo_difference(model.predict(x_norm), 2)
   loss = (predictions - y_norm) ** 2
 
+  print(y)
+  print(de_normalize(predictions, scalers[-1]))
 
   lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
   # plt.boxplot(Y_test)
