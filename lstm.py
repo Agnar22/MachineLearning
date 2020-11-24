@@ -70,5 +70,5 @@ def predict(model: Sequential, x: np.ndarray, days: int, series_dim: int = -1):
   for day in range(days):
     pred = model.predict(rec_x[day:day+config.INPUTDAYS].reshape(1, config.INPUTDAYS, len(config.FEATURES)))
     predictions = np.append(predictions, pred)
-    rec_x[day, series_dim] = pred
+    rec_x[day + config.INPUTDAYS + 1, series_dim] = pred
   return predictions
