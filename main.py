@@ -156,6 +156,7 @@ def run_pipeline():
   #best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
 
   model,_ = cross_validation(x_norm, y_norm)#lstm.create_model(**best_params) 
+  print(lstm.predict(model, data[config.FEATURES].to_numpy(), 10))
 
   predictions = model.predict(x_norm)
   loss = (predictions - y_norm) ** 2

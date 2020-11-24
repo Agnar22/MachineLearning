@@ -62,12 +62,13 @@ def calculate_shap(model: Sequential, X_train: np.ndarray, X_test: np.ndarray, f
 
 
 
-def predict(model: Sequential, x: np.ndarray, days: int):
+def predict(model: Sequential, x: np.ndarray, days: int, series_dim: int = -1):
   predictions = np.array([])
+  rec_x = x.copy()
 
   # Make recursive predictions.
   for day in range(days):
-    pred = model.predict(x.reshape(1, config.INPUTDAYS, len(config.FEATURES)))
+    pred = model.predict(rec_x[day:day+config.INPUTDAYS].reshape(1, config.INPUTDAYS, len(config.FEATURES)))
     predictions = np.append(predictions, pred)
-    x = np.append(x[1:], pred)
+    rec_x[day, series_dim] = pred
   return predictions
