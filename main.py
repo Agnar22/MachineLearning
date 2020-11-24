@@ -118,7 +118,7 @@ def cross_validation(x, y, i = 1):
   # summarize results
   print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_)) # average of r2 scores
 
-  return grid_result.best_params_, clf
+  return grid_result.best_estimator_, clf
 
 def nested_cross_validation(x, y):
   NUM_TRIALS = 5
@@ -129,7 +129,7 @@ def nested_cross_validation(x, y):
   for i in range(NUM_TRIALS):
     outer_cv = KFold(n_splits=5, shuffle=True, random_state=i)
 
-    params, clf = cross_validation(x, y, i)
+    _, clf = cross_validation(x, y, i)
     non_nested_scores.append(clf.best_score_)
 
     # Nested CV with parameter optimization
@@ -153,15 +153,12 @@ def run_pipeline():
 
   #nested_cross_validation(x_norm, y_norm)
   #best_params = cross_validation(x_norm, y_norm)
-  best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
+  #best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
 
-  model = lstm.create_model(**best_params) 
+  model,_ = cross_validation(x_norm, y_norm)#lstm.create_model(**best_params) 
 
   predictions = undo_difference(model.predict(x_norm), 2)
   loss = (predictions - y_norm) ** 2
-
-  print(y)
-  print(de_normalize(predictions, scalers[-1]))
 
   lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
   # plt.boxplot(Y_test)
