@@ -153,7 +153,7 @@ def run_pipeline():
   cases_norway = data[data['CountryName'] == 'Norway']
   X_test_norm = scaler.transform(cases_norway[config.FEATURES].to_numpy())
   prediction_norm = lstm.predict(model, X_test_norm[date_from-config.INPUTDAYS:], predict_days)
-  prediction = scaler.de_normalize_data(prediction_norm, scaler.scalers[-1])
+  _, prediction = scaler.inverse_transform(None, prediction_norm)
   actual = cases_norway['ConfirmedCases'][date_from:date_to]
 
   #draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
