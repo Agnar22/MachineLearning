@@ -62,7 +62,7 @@ def load_and_clean_data():
   """
   data = pd.read_csv(config.DATA_PATH)
 
-  data = data.iloc[10000:]
+  #data = data.iloc[10000:]
 
   # Remove the last two weeks (data is updated once per week, therefore the maximum gap would be two weeks)
   data = data[data['Date'] < 20201015]
@@ -165,22 +165,27 @@ def nested_cross_validation(x, y):
 def run_pipeline():
   data = load_and_clean_data()
 
-  x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
+  x, y = create_supervised_data_set(data[data['CountryName'].isin(['Norway', 'Italy', 'Sweden'])], overlapping=True)
 
   #x_norm, _, y_norm, _, scalers = normalize_dataset(x.copy(), None, y.copy(), None)
 
-  best_params = {'learn_rate': 0.001,'activation': 'relu', 'dropout_rate': 0.2, 'neurons': 128}
+  best_params = {'learn_rate': 0.0001,'activation': 'selu', 'dropout_rate': 0.0, 'neurons': 256}
   #best_params, _ = grid_cross_validation(x_norm, y_norm)
   #best_params, r2_scores = nested_cross_validation(x_norm, y_norm)
   #print("Nested cross validation r2 scores:" + r2_scores)
   #print("Nested cross validation r2 scores mean:" + r2_scores.mean())
 
   model = lstm.create_model(**best_params)
-  X_train, X_val, Y_train, Y_test = split_data(x, y)
-  X_train_norm, X_val_norm, Y_train_norm, Y_test_norm, scalers = normalize_dataset(X_train.copy(), X_val.copy(), Y_train.copy(), Y_test.copy())
-  lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_val_norm, Y_test_norm))
+  X_train, X_val, Y_train, Y_test = x, None, y, None
+  X_train_norm, X_val_norm, Y_train_norm, Y_test_norm, scalers = normalize_dataset(X_train.copy(), None, Y_train.copy(), None)
 
-  date_from = 100
+
+
+
+  Y_train_norm = Y_train_norm * 1000
+  lstm.train_model(model, X_train_norm, Y_train_norm)
+
+  date_from = 120
   predict_days = 30
   date_to = date_from + predict_days
   dates = data['Date'][date_from:date_to]
@@ -190,7 +195,14 @@ def run_pipeline():
   prediction = de_normalize(prediction_norm, scalers[-1])
   actual = cases_norway['ConfirmedCases'][date_from:date_to]
 
+  for x in range(predict_days):
+    print(actual.iloc[x],
+          prediction[x],
+          X_test[date_from+x],
+          prediction_norm[x])
+
   draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
+
 
   #return
 
