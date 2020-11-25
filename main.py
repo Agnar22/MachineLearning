@@ -62,7 +62,7 @@ def load_and_clean_data():
   """
   data = pd.read_csv(config.DATA_PATH)
 
-  data = data.iloc[:200]
+  data = data.iloc[10000:]
 
   # Remove the last two weeks (data is updated once per week, therefore the maximum gap would be two weeks)
   data = data[data['Date'] < 20201015]
@@ -93,21 +93,32 @@ def normalize_dataset(X_train, X_test, Y_train, Y_test):
   scalers = []
   for col in range(X_train.shape[2]):
     scaler = MinMaxScaler()
-    X_train[:,:,col] = normalize_data(X_train[:, :, col], scaler).reshape(*X_train.shape[:2])
+    X_train[:,:,col] = normalize(X_train[:, :, col], scaler, fit=True).reshape(*X_train.shape[:2])
     if X_test is not None:
-      X_test[:,:,col] = normalize_data(X_test[:, :, col], scaler).reshape(*X_test.shape[:2])
+      X_test[:,:,col] = normalize(X_test[:, :, col], scaler).reshape(*X_test.shape[:2])
     scalers.append(scaler)
-  Y_train = normalize_data(Y_train, scaler)
+  if Y_train is not None:
+    Y_train = normalize(Y_train, scalers[-1])
   if Y_test is not None:
-    Y_test = normalize_data(Y_test, scaler)
+    Y_test = normalize(Y_test, scalers[-1])
   return X_train, X_test, Y_train, Y_test, scalers
 
-def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
+def normalize_timeseries(x, scalers):
+  for col in range(x.shape[-1]):
+    y = normalize(x[:, col], scalers[col]).reshape(*x.shape[:-1])
+    x[:, col] = y
+  return x
+
+
+def normalize(data: np.ndarray, scaler: MinMaxScaler, fit=False):
   """
   :param data:
   :return: normalized values for x
   """
-  return scaler.fit_transform(data.reshape(-1, 1)).reshape(-1)
+  if fit:
+    return scaler.fit_transform(data.reshape(-1, 1)).reshape(-1)
+  else:
+    return scaler.transform(data.reshape(-1, 1)).reshape(-1)
 
 def de_normalize(data: np.ndarray, scaler: MinMaxScaler):
   return scaler.inverse_transform(data.reshape(-1, 1)).reshape(-1)
@@ -149,14 +160,14 @@ def nested_cross_validation(x, y):
   r2_scores = cross_val_score(clf, X=x, y=y, cv=outer_cv)
 
   return best_params, r2_scores
-  
+
 
 def run_pipeline():
   data = load_and_clean_data()
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
 
-  x_norm, _, y_norm, _, scalers = normalize_dataset(x.copy(), None, y.copy(), None)
+  #x_norm, _, y_norm, _, scalers = normalize_dataset(x.copy(), None, y.copy(), None)
 
   best_params = {'learn_rate': 0.001,'activation': 'relu', 'dropout_rate': 0.2, 'neurons': 128}
   #best_params, _ = grid_cross_validation(x_norm, y_norm)
@@ -165,29 +176,31 @@ def run_pipeline():
   #print("Nested cross validation r2 scores mean:" + r2_scores.mean())
 
   model = lstm.create_model(**best_params)
-  X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
-  X_train_norm, X_test_norm, Y_train_norm, Y_test_norm, scalers = normalize_dataset(X_train.copy(), X_test.copy(), Y_train.copy(), Y_test.copy())  
-  lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_test_norm, Y_test_norm))
-  date_from = 20
+  X_train, X_val, Y_train, Y_test = split_data(x, y)
+  X_train_norm, X_val_norm, Y_train_norm, Y_test_norm, scalers = normalize_dataset(X_train.copy(), X_val.copy(), Y_train.copy(), Y_test.copy())
+  lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_val_norm, Y_test_norm))
+
+  date_from = 100
   predict_days = 30
   date_to = date_from + predict_days
   dates = data['Date'][date_from:date_to]
-  prediction_norm = lstm.predict(model, data[config.FEATURES].to_numpy()[date_from:,:], predict_days)
+  cases_norway = data[data['CountryName'] == 'Norway']
+  X_test = normalize_timeseries(cases_norway[config.FEATURES].to_numpy(), scalers)
+  prediction_norm = lstm.predict(model, X_test[date_from-config.INPUTDAYS:], predict_days)
   prediction = de_normalize(prediction_norm, scalers[-1])
-  actual = data['ConfirmedCases'][date_from:date_to]
+  actual = cases_norway['ConfirmedCases'][date_from:date_to]
 
   draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
 
-  return
+  #return
 
-  lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
+  #lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
   # plt.boxplot(Y_test)
   # plt.show()
 
   # for pos in np.flip(np.argsort(loss, axis=0))[0:10]:
   #  print(pos, X_train[pos], Y_train[pos], predictions[pos], loss[pos])
 
-  cases_norway = data[data['CountryName'] == 'Norway']
 
 if __name__ == '__main__':
   run_pipeline()
