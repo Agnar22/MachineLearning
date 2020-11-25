@@ -24,6 +24,7 @@ def groups_to_cases(groups, overlapping: bool = False):
   x = np.array([]).reshape(-1, config.INPUTDAYS, len(config.FEATURES))
   scaler = None
   for _, group in groups:
+    group["ConfirmedCases"] = difference(group["ConfirmedCases"], 1)
     x_group, y_group, scaler = group_to_cases(group, overlapping=overlapping)
     y = np.concatenate((y, y_group))
     x = np.concatenate((x, x_group))
@@ -161,7 +162,9 @@ def run_pipeline():
   x, y, scaler = create_supervised_data_set(cases_norway.copy(), overlapping=True) #EXTRA
   X_test_norm = scaler.transform_timeseries(cases_norway[config.FEATURES].to_numpy().copy())
   prediction_norm = lstm.predict(model, X_test_norm[date_from-config.INPUTDAYS:], predict_days)
-  _, prediction = scaler.inverse_transform(None, prediction_norm)
+  _, prediction_diffed = scaler.inverse_transform(None, prediction_norm)
+  total_diffed = np.concatenate((difference(cases_norway['ConfirmedCases'][:date_from].copy(),1),prediction_diffed))
+  prediction = undo_difference(total_diffed, 1)[-len(prediction_diffed):]
   actual = np.array(cases_norway['ConfirmedCases'][date_from:date_to])
   draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
 
