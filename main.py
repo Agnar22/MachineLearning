@@ -3,13 +3,15 @@ import config
 import numpy as np
 import lstm
 import visualization
-from keras.wrappers.scikit_learn import KerasClassifier
+from sklearn.pipeline import Pipeline
+from keras.wrappers.scikit_learn import KerasRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GridSearchCV, cross_val_score, TimeSeriesSplit
 from sklearn.metrics import accuracy_score
+from sklearn.pipeline import make_pipeline
 from dataprocessing import difference, undo_difference
 from visualization import draw_graph
+from scaler import NormalizeScaler
 
 def groups_to_cases(groups, overlapping: bool = False):
   """
@@ -62,7 +64,7 @@ def load_and_clean_data():
   """
   data = pd.read_csv(config.DATA_PATH)
 
-  data = data.iloc[:200]
+  data = data[:2000]
 
   # Remove the last two weeks (data is updated once per week, therefore the maximum gap would be two weeks)
   data = data[data['Date'] < 20201015]
@@ -89,29 +91,6 @@ def load_and_clean_data():
 
   return data
 
-def normalize_dataset(X_train, X_test, Y_train, Y_test):
-  scalers = []
-  for col in range(X_train.shape[2]):
-    scaler = MinMaxScaler()
-    X_train[:,:,col] = normalize_data(X_train[:, :, col], scaler).reshape(*X_train.shape[:2])
-    if X_test is not None:
-      X_test[:,:,col] = normalize_data(X_test[:, :, col], scaler).reshape(*X_test.shape[:2])
-    scalers.append(scaler)
-  Y_train = normalize_data(Y_train, scaler)
-  if Y_test is not None:
-    Y_test = normalize_data(Y_test, scaler)
-  return X_train, X_test, Y_train, Y_test, scalers
-
-def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
-  """
-  :param data:
-  :return: normalized values for x
-  """
-  return scaler.fit_transform(data.reshape(-1, 1)).reshape(-1)
-
-def de_normalize(data: np.ndarray, scaler: MinMaxScaler):
-  return scaler.inverse_transform(data.reshape(-1, 1)).reshape(-1)
-
 def split_data(x: np.ndarray, y: np.ndarray):
   """
   :param x:
@@ -121,18 +100,18 @@ def split_data(x: np.ndarray, y: np.ndarray):
   X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=config.VALIDATION_SIZE, shuffle=False)
   return X_train, X_test, Y_train, Y_test
 
-def grid_cross_validation(x, y):
+def grid_cross_validation(x: np.ndarray, y: np.ndarray):
   inner_cv = TimeSeriesSplit(n_splits=5)
-
-  lstm_model = KerasClassifier(build_fn=lstm.create_model, verbose=2)
 
   learn_rate = [0.001, 0.01, 0.1, 0.2, 0.3]
   activation = ['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
   dropout_rate = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
   neurons = [32, 64, 128, 256, 512]
 
-  params = dict(learn_rate=learn_rate, activation=activation, dropout_rate=dropout_rate, neurons=neurons)
-  clf = GridSearchCV(estimator=lstm_model, param_grid=params, cv = inner_cv)
+  pipeline = make_pipeline(NormalizeScaler(),KerasRegressor(lstm.create_model))
+
+  params = {'kerasregressor__learn_rate':learn_rate, 'kerasregressor__activation':activation, 'kerasregressor__dropout_rate':dropout_rate, 'kerasregressor__neurons':neurons}
+  clf = GridSearchCV(pipeline, params,cv = inner_cv)
   grid_result = clf.fit(x, y)
 
   # summarize results
@@ -140,7 +119,7 @@ def grid_cross_validation(x, y):
 
   return grid_result.best_params_, clf
 
-def nested_cross_validation(x, y):
+def nested_cross_validation(x: np.ndarray, y: np.ndarray):
   outer_cv = TimeSeriesSplit(n_splits=5)
 
   best_params, clf = grid_cross_validation(x, y)
@@ -156,27 +135,26 @@ def run_pipeline():
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
 
-  x_norm, _, y_norm, _, scalers = normalize_dataset(x.copy(), None, y.copy(), None)
-
-  best_params = {'learn_rate': 0.001,'activation': 'relu', 'dropout_rate': 0.2, 'neurons': 128}
-  #best_params, _ = grid_cross_validation(x_norm, y_norm)
-  #best_params, r2_scores = nested_cross_validation(x_norm, y_norm)
+  #best_params = {'learn_rate': 0.001,'activation': 'relu', 'dropout_rate': 0.2, 'neurons': 128}
+  best_params, _ = grid_cross_validation(x, y)
+  #best_params, r2_scores = nested_cross_validation(x, y)
   #print("Nested cross validation r2 scores:" + r2_scores)
   #print("Nested cross validation r2 scores mean:" + r2_scores.mean())
 
   model = lstm.create_model(**best_params)
-  X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
-  X_train_norm, X_test_norm, Y_train_norm, Y_test_norm, scalers = normalize_dataset(X_train.copy(), X_test.copy(), Y_train.copy(), Y_test.copy())  
+  X_train, X_test, Y_train, Y_test = split_data(x, y)
+  scaler = NormalizeScaler()
+  X_train_norm, X_test_norm, Y_train_norm, Y_test_norm = scaler.normalize_train_test(X_train, X_test, Y_train, Y_test)
   lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_test_norm, Y_test_norm))
-  date_from = 20
+  date_from = 0#250
   predict_days = 30
   date_to = date_from + predict_days
   dates = data['Date'][date_from:date_to]
-  prediction_norm = lstm.predict(model, data[config.FEATURES].to_numpy()[date_from:,:], predict_days)
-  prediction = de_normalize(prediction_norm, scalers[-1])
-  actual = data['ConfirmedCases'][date_from:date_to]
+  #prediction_norm = lstm.predict(model, data[config.FEATURES].to_numpy()[date_from:,:], predict_days)
+  #prediction = de_normalize(prediction_norm, scalers[-1])
+  #actual = data['ConfirmedCases'][date_from:date_to]
 
-  draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
+  #draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
 
   return
 
