@@ -52,6 +52,10 @@ def create_supervised_data_set(data: pd.DataFrame, overlapping: bool = False):
   x, y = groups_to_cases(data, overlapping=overlapping)
   return x, y
 
+def count_NaN_and_zero_confirmed_cases(data: pd.DataFrame):
+  count_NaN = data['ConfirmedCases'].isnull().sum()
+  count_zero = data['ConfirmedCases'].value_counts()[0]
+  return count_NaN + count_zero
 
 def load_and_clean_data():
   """
@@ -62,20 +66,22 @@ def load_and_clean_data():
   # Remove the last two weeks (data is updated once per week, therefore the maximum gap would be two weeks)
   data = data[data['Date'] < 20201015]
 
-  # Remove flags.
-  data.drop(list(filter(lambda x: 'flag' in x.lower(), data.columns)), axis=1, inplace = True)
-
-  data.drop(['M1_Wildcard'], axis=1, inplace = True)
-
   # Drop states
   data = data[pd.isnull(data['RegionName'])]
 
   # Keep relevant columns.
-  data = data[list(filter(lambda x: '_' in x or x in ['CountryName', 'Date', 'ConfirmedCases'], data.columns))]
+  relevant_columns = config.FEATURES + ['CountryName', 'Date', 'ConfirmedCases']
+  data = data[list(filter(lambda x: x in relevant_columns, data.columns))]
 
   # Fill na with forward fill
   data.loc[data['Date'] == 20200101] = data.loc[data['Date'] == 20200101].fillna(0)
   data.fillna(method='ffill', inplace = True)
+
+  # Forward fill analysis:
+  # count_NaN_and_zero_confirmed_cases(data) was equal to 13677 before fillna, and 13313 after fillna.
+  # Meaning 364 cells with value higher than zero confirmed cases were forward filled.
+  # len(data['ConfirmedCases']) was equal to 53856
+  # Tested in commit id e8d334
 
   # Format date
   data['Date'] = pd.to_datetime(data['Date'], format='%Y%m%d')
@@ -121,27 +127,20 @@ def cross_validation(x, y):
   return grid_result.best_estimator_, clf
 
 def nested_cross_validation(x, y):
-  NUM_TRIALS = 5
+  outer_cv = TimeSeriesSplit(n_splits=5)
 
-  non_nested_scores = []
-  nested_scores = []
+  _, clf = cross_validation(x, y)
+  non_nested_score = clf.best_score_
 
-  for _ in range(NUM_TRIALS):
-    outer_cv = TimeSeriesSplit(n_splits=5)
+  # Nested CV with parameter optimization
+  nested_score = cross_val_score(clf, X=x, y=y, cv=outer_cv)
+  nested_score = nested_score.mean()
 
-    _, clf = cross_validation(x, y)
-    non_nested_scores.append(clf.best_score_)
+  score_difference = non_nested_score - nested_score
 
-    # Nested CV with parameter optimization
-    nested_score = cross_val_score(clf, X=x, y=y, cv=outer_cv)
-    nested_scores.append(nested_score.mean())
-
-  score_difference = np.array(non_nested_scores) - np.array(nested_scores)
-
-  print("CV scores:", non_nested_scores)
-  print("NCV scores:", nested_scores)
-  print("Average difference of {:6f} with std. dev. of {:6f}."
-        .format(score_difference.mean(), score_difference.std()))
+  print("CV score:", non_nested_score)
+  print("NCV score:", nested_score)
+  print("Difference of", score_difference)
   
 
 def run_pipeline():
@@ -155,11 +154,16 @@ def run_pipeline():
   #best_params = cross_validation(x_norm, y_norm)
   #best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
 
-  model,_ = cross_validation(x_norm, y_norm)#lstm.create_model(**best_params) 
-  print(lstm.predict(model, data[config.FEATURES].to_numpy(), 10))
+  model,_ = cross_validation(x_norm, y_norm) # lstm.create_model(**best_params) 
+  dates = data['Date'][200:230]
+  prediction_norm = model.predict(model, data[config.FEATURES].to_numpy()[200:,:], 30)
+  prediction = de_normalize(prediction_norm, scalers[-1])
+  actual = data['ConfirmedCases'][200:230]
+  loss = (prediction - actual) ** 2
 
-  predictions = model.predict(x_norm)
-  loss = (predictions - y_norm) ** 2
+  draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
+
+  return
 
   lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
   # plt.boxplot(Y_test)
