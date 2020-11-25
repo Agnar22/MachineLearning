@@ -10,7 +10,6 @@ from sklearn.model_selection import GridSearchCV, cross_val_score, TimeSeriesSpl
 from sklearn.metrics import accuracy_score
 from dataprocessing import difference, undo_difference
 from visualization import draw_graph
-from lstm import create_model
 
 def groups_to_cases(groups, overlapping: bool = False):
   """
@@ -164,7 +163,7 @@ def run_pipeline():
   #print("Nested cross validation r2 scores:" + r2_scores)
   #print("Nested cross validation r2 scores mean:" + r2_scores.mean())
 
-  model = create_model(**best_params)
+  model = lstm.create_model(**best_params)
   X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
   X_train_norm, X_test_norm, Y_train_norm, Y_test_norm, scalers = normalize_dataset(X_train.copy(), X_test.copy(), Y_train.copy(), Y_test.copy())  
   lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_test_norm, Y_test_norm))
