@@ -29,19 +29,27 @@ class NormalizeScaler( BaseEstimator, TransformerMixin ):
     return self
   
   def transform( self, X, y = None ):
-    for col in range(X.shape[2]):
-      scaler = self.scalers[col]
-      X[:,:,col] = self.normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
+    if not X is None:
+      for col in range(X.shape[2]):
+        scaler = self.scalers[col]
+        X[:,:,col] = self.normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
     cases_index = config.FEATURES.index('ConfirmedCases')
     if y is None:
       return X
     y = self.normalize_data(y, self.scalers[cases_index])
     return X, y
 
-  def inverse_transform(self, X, y=None):
-    for col in range(X.shape[2]):
+  def transform_timeseries(self, X):
+    for col in range(X.shape[-1]):
       scaler = self.scalers[col]
-      X[:,:,col] = self.de_normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
+      X[:, col] = self.normalize_data(X[:, col], scaler).reshape(*X.shape[:-1])
+    return X
+
+  def inverse_transform(self, X, y=None):
+    if not X is None:
+      for col in range(X.shape[2]):
+        scaler = self.scalers[col]
+        X[:,:,col] = self.de_normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
     cases_index = config.FEATURES.index('ConfirmedCases')
     if y is None:
       return X

@@ -37,7 +37,7 @@ def draw_graph(*args, x: str = 'x', y: str = 'y'):
   plt.ylabel(y)
   plt.xticks(fontsize=8)
   plt.legend()
-  plt.show(block=False)
+  plt.show(block=True)
 
 
 def visualize_predictions(cases: pd.DataFrame, model: Sequential, cases_norway: pd.DataFrame):

@@ -23,7 +23,7 @@ def create_model(learn_rate, activation, dropout_rate, neurons):
   model.add(Dense(1, activation='linear'))
   optim = Adam(lr=learn_rate)
   # optim = RMSprop()
-  model.compile(loss='logcosh', optimizer=optim, metrics=["accuracy"])
+  model.compile(loss='logcosh', optimizer=optim )
   model.summary()
   return model
 

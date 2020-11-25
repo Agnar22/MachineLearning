@@ -13,6 +13,7 @@ from dataprocessing import difference, undo_difference
 from visualization import draw_graph
 from scaler import NormalizeScaler
 
+
 def groups_to_cases(groups, overlapping: bool = False):
   """
   :param groups:
@@ -21,12 +22,12 @@ def groups_to_cases(groups, overlapping: bool = False):
   """
   y = np.array([])
   x = np.array([]).reshape(-1, config.INPUTDAYS, len(config.FEATURES))
+  scaler = None
   for _, group in groups:
-    #group["ConfirmedCases"] = difference(group["ConfirmedCases"], 2)
-    x_group, y_group = group_to_cases(group, overlapping=overlapping)
+    x_group, y_group, scaler = group_to_cases(group, overlapping=overlapping)
     y = np.concatenate((y, y_group))
     x = np.concatenate((x, x_group))
-  return x, y
+  return x, y, scaler
 
 
 def group_to_cases(group, overlapping: bool = False):
@@ -35,13 +36,16 @@ def group_to_cases(group, overlapping: bool = False):
   :param overlapping:
   :return:
   """
-
   y = group['ConfirmedCases'].iloc[config.INPUTDAYS:].to_numpy()
   x = np.array([]).reshape(-1, config.INPUTDAYS, len(config.FEATURES))
   for row in range(group.shape[0] - config.INPUTDAYS):
     curr_x = group[config.FEATURES].iloc[row:row + config.INPUTDAYS].to_numpy()
     x = np.concatenate((x, curr_x.reshape(1, config.INPUTDAYS, len(config.FEATURES))), axis=0)
-  return x, y
+
+  scaler = NormalizeScaler()
+  scaler.fit(x)
+  x, y = scaler.transform(x, y)
+  return x, y, scaler
 
 
 def create_supervised_data_set(data: pd.DataFrame, overlapping: bool = False):
@@ -50,8 +54,8 @@ def create_supervised_data_set(data: pd.DataFrame, overlapping: bool = False):
   :return: supervised data set (input and target)
   """
   data = data[data['ConfirmedCases'] > config.INFECTED_LOWER].groupby('CountryName')
-  x, y = groups_to_cases(data, overlapping=overlapping)
-  return x, y
+  x, y, scaler = groups_to_cases(data, overlapping=overlapping)
+  return x, y, scaler
 
 def count_NaN_and_zero_confirmed_cases(data: pd.DataFrame):
   count_NaN = data['ConfirmedCases'].isnull().sum()
@@ -64,7 +68,7 @@ def load_and_clean_data():
   """
   data = pd.read_csv(config.DATA_PATH)
 
-  data = data.iloc[10000:]
+  #data = data.iloc[10000:]
 
   # Remove the last two weeks (data is updated once per week, therefore the maximum gap would be two weeks)
   data = data[data['Date'] < 20201015]
@@ -131,11 +135,15 @@ def nested_cross_validation(x: np.ndarray, y: np.ndarray):
 
 
 def run_pipeline():
+  # fix random seed for reproducibility
+  seed = 10
+  np.random.seed(seed)
+
   data = load_and_clean_data()
 
-  x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
+  x, y, _ = create_supervised_data_set(data[data['CountryName'] != 'Norway'].copy(), overlapping=True)
 
-  best_params = {'learn_rate': 0.001,'activation': 'relu', 'dropout_rate': 0.2, 'neurons': 128}
+  best_params = {'learn_rate': 0.005,'activation': 'relu', 'dropout_rate': 0.2, 'neurons': 128}
   #best_params, _ = grid_cross_validation(x, y)
   #best_params, r2_scores = nested_cross_validation(x, y)
   #print("Nested cross validation r2 scores:" + r2_scores)
@@ -143,22 +151,21 @@ def run_pipeline():
 
   model = lstm.create_model(**best_params)
   X_train, X_val, Y_train, Y_val = split_data(x, y)
-  scaler = NormalizeScaler()
-  X_train_norm, X_val_norm, Y_train_norm, Y_val_norm = scaler.normalize_train_test(X_train, X_val, Y_train, Y_val)
+  X_train_norm, X_val_norm, Y_train_norm, Y_val_norm = X_train, X_val, Y_train, Y_val #EXTRA
   lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_val_norm, Y_val_norm))
   date_from = 100
   predict_days = 30
   date_to = date_from + predict_days
   dates = data['Date'][date_from:date_to]
   cases_norway = data[data['CountryName'] == 'Norway']
-  X_test_norm = scaler.transform_timeseries(cases_norway[config.FEATURES].to_numpy())
+  x, y, scaler = create_supervised_data_set(cases_norway.copy(), overlapping=True) #EXTRA
+  X_test_norm = scaler.transform_timeseries(cases_norway[config.FEATURES].to_numpy().copy())
   prediction_norm = lstm.predict(model, X_test_norm[date_from-config.INPUTDAYS:], predict_days)
   _, prediction = scaler.inverse_transform(None, prediction_norm)
-  actual = cases_norway['ConfirmedCases'][date_from:date_to]
+  actual = np.array(cases_norway['ConfirmedCases'][date_from:date_to])
+  draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
 
-  #draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
-
-  #return
+  return
 
   #lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
   # plt.boxplot(Y_test)
