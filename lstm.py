@@ -58,8 +58,8 @@ def calculate_shap(model: Sequential, X_train: np.ndarray, X_test: np.ndarray, f
   shap_values_2d = shap_values[0].reshape(-1, len(config.FEATURES))
   X_test_2d = X_test.reshape(-1, len(config.FEATURES))
 
-  shap.summary_plot(shap_values_2d[:, :len(config.FEATURES)-1], X_test_2d[:, :len(config.FEATURES)-1], features[:-1])
-
+  shap.summary_plot(shap_values_2d[:, :len(config.FEATURES) - 1], X_test_2d[:, :len(config.FEATURES) - 1],
+                    features[:-1])
 
 
 def predict(model: Sequential, x: np.ndarray, days: int, series_dim: int = -1):
@@ -68,7 +68,8 @@ def predict(model: Sequential, x: np.ndarray, days: int, series_dim: int = -1):
 
   # Make recursive predictions.
   for day in range(days):
-    pred = model.predict(rec_x[day:day+config.INPUTDAYS].reshape(1, config.INPUTDAYS, len(config.FEATURES)))
+    pred = model.predict(rec_x[day:day + config.INPUTDAYS].reshape(1, config.INPUTDAYS, len(config.FEATURES)))
     predictions = np.append(predictions, pred)
     rec_x[day + config.INPUTDAYS + 1, series_dim] = pred
+    # rec_x = np.append(rec_x[1:], pred)
   return predictions

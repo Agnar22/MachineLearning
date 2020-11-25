@@ -63,6 +63,8 @@ def load_and_clean_data():
   """
   data = pd.read_csv(config.DATA_PATH)
 
+  data = data.iloc[:200]
+
   # Remove the last two weeks (data is updated once per week, therefore the maximum gap would be two weeks)
   data = data[data['Date'] < 20201015]
 
@@ -95,7 +97,7 @@ def normalize_dataset(X,Y):
     scaler = MinMaxScaler()
     X[:,:,col] = normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
     scalers.append(scaler)
-  Y = normalize_data(Y, scaler) # using the last scaler as it is the confirmed case scaler
+  Y = normalize_data(Y, scaler) if Y is not None else None  # using the last scaler as it is the confirmed case scaler
   return X, Y, scalers
 
 def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
