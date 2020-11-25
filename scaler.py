@@ -33,20 +33,20 @@ class NormalizeScaler( BaseEstimator, TransformerMixin ):
       scaler = self.scalers[col]
       X[:,:,col] = self.normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
     cases_index = config.FEATURES.index('ConfirmedCases')
-    if y != None:
-      y = self.de_normalize_data(y, self.scalers[cases_index])
-      return X, y
-    return X
+    if y is None:
+      return X
+    y = self.normalize_data(y, self.scalers[cases_index])
+    return X, y
 
   def inverse_transform(self, X, y=None):
     for col in range(X.shape[2]):
       scaler = self.scalers[col]
       X[:,:,col] = self.de_normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
     cases_index = config.FEATURES.index('ConfirmedCases')
-    if y != None:
-      y = self.de_normalize_data(y, self.scalers[cases_index])
-      return X, y
-    return X
+    if y is None:
+      return X
+    y = self.de_normalize_data(y, self.scalers[cases_index])
+    return X, y
 
   def normalize_train_test(self, X_train, X_test, y_train, y_test):
     self.fit(X_train, y_train)
