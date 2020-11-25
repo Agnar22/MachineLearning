@@ -10,7 +10,7 @@ from sklearn.model_selection import GridSearchCV, cross_val_score, TimeSeriesSpl
 from sklearn.metrics import accuracy_score
 from dataprocessing import difference, undo_difference
 from visualization import draw_graph
-
+from lstm import create_model
 
 def groups_to_cases(groups, overlapping: bool = False):
   """
@@ -90,15 +90,18 @@ def load_and_clean_data():
 
   return data
 
-
-def normalize_dataset(X,Y):
+def normalize_dataset(X_train, X_test, Y_train, Y_test):
   scalers = []
-  for col in range(X.shape[2]):
+  for col in range(X_train.shape[2]):
     scaler = MinMaxScaler()
-    X[:,:,col] = normalize_data(X[:, :, col], scaler).reshape(*X.shape[:2])
+    X_train[:,:,col] = normalize_data(X_train[:, :, col], scaler).reshape(*X_train.shape[:2])
+    if X_test != None:
+      X_test[:,:,col] = normalize_data(X_test[:, :, col], scaler).reshape(*X_test.shape[:2])
     scalers.append(scaler)
-  Y = normalize_data(Y, scaler) if Y is not None else None  # using the last scaler as it is the confirmed case scaler
-  return X, Y, scalers
+  Y_train_norm = normalize_data(Y_train, scaler)
+  if Y_test != None:
+    Y_test_norm = normalize_data(Y_test, scaler)
+  return X_train, X_test, Y_train_norm, Y_test_norm, scalers
 
 def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
   """
@@ -110,7 +113,16 @@ def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
 def de_normalize(data: np.ndarray, scaler: MinMaxScaler):
   return scaler.inverse_transform(data.reshape(-1, 1)).reshape(-1)
 
-def cross_validation(x, y):
+def split_data(x: np.ndarray, y: np.ndarray):
+  """
+  :param x:
+  :param y:
+  :return:
+  """
+  X_train, X_test, Y_train, Y_test = train_test_split(x, y, test_size=config.VALIDATION_SIZE, shuffle=False)
+  return X_train, X_test, Y_train, Y_test
+
+def grid_cross_validation(x, y):
   inner_cv = TimeSeriesSplit(n_splits=5)
 
   lstm_model = KerasClassifier(build_fn=lstm.create_model, verbose=2)
@@ -126,23 +138,17 @@ def cross_validation(x, y):
   # summarize results
   print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_)) # average of r2 scores
 
-  return grid_result.best_estimator_, clf
+  return grid_result.best_params_, clf
 
 def nested_cross_validation(x, y):
   outer_cv = TimeSeriesSplit(n_splits=5)
 
-  _, clf = cross_validation(x, y)
-  non_nested_score = clf.best_score_
+  best_params, clf = grid_cross_validation(x, y)
 
   # Nested CV with parameter optimization
-  nested_score = cross_val_score(clf, X=x, y=y, cv=outer_cv)
-  nested_score = nested_score.mean()
+  r2_scores = cross_val_score(clf, X=x, y=y, cv=outer_cv)
 
-  score_difference = non_nested_score - nested_score
-
-  print("CV score:", non_nested_score)
-  print("NCV score:", nested_score)
-  print("Difference of", score_difference)
+  return best_params, r2_scores
   
 
 def run_pipeline():
@@ -150,14 +156,18 @@ def run_pipeline():
 
   x, y = create_supervised_data_set(data[data['CountryName'] != 'Norway'], overlapping=True)
 
-  x_norm, y_norm, scalers = normalize_dataset(x.copy(), y.copy())
+  x_norm, _, y_norm, _, scalers = normalize_dataset(x.copy(), None, y.copy(), None)
 
-  #nested_cross_validation(x_norm, y_norm)
-  #best_params = cross_validation(x_norm, y_norm)
-  #best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
+  best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
+  #best_params, _ = grid_cross_validation(x_norm, y_norm)
+  #best_params, r2_scores = nested_cross_validation(x_norm, y_norm)
+  #print("Nested cross validation r2 scores:" + r2_scores)
+  #print("Nested cross validation r2 scores mean:" + r2_scores.mean())
 
-  model,_ = cross_validation(x_norm, y_norm) # lstm.create_model(**best_params) 
-  model = lstm.create_model(0.2, 'relu', 0.25)
+  model = create_model(**best_params)
+  X_train, X_test, Y_train, Y_test = split_data(x_norm, y_norm)
+  X_train_norm, X_test_norm, Y_train_norm, Y_test_norm, scalers = normalize_dataset(X_train.copy(), X_test.copy(), Y_train.copy(), Y_test.copy())  
+  lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_test_norm, Y_test_norm))
   date_from = 20
   predict_days = 30
   date_to = date_from + predict_days
