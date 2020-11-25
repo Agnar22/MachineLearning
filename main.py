@@ -94,11 +94,11 @@ def normalize_dataset(X_train, X_test, Y_train, Y_test):
   for col in range(X_train.shape[2]):
     scaler = MinMaxScaler()
     X_train[:,:,col] = normalize_data(X_train[:, :, col], scaler).reshape(*X_train.shape[:2])
-    if X_test != None:
+    if X_test is not None:
       X_test[:,:,col] = normalize_data(X_test[:, :, col], scaler).reshape(*X_test.shape[:2])
     scalers.append(scaler)
   Y_train = normalize_data(Y_train, scaler)
-  if Y_test != None:
+  if Y_test is not None:
     Y_test = normalize_data(Y_test, scaler)
   return X_train, X_test, Y_train, Y_test, scalers
 
