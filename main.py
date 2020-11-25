@@ -157,11 +157,14 @@ def run_pipeline():
   #best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
 
   model,_ = cross_validation(x_norm, y_norm) # lstm.create_model(**best_params) 
-  dates = data['Date'][200:230]
-  prediction_norm = model.predict(model, data[config.FEATURES].to_numpy()[200:,:], 30)
+  model = lstm.create_model(0.2, 'relu', 0.25)
+  date_from = 20
+  predict_days = 30
+  date_to = date_from + predict_days
+  dates = data['Date'][date_from:date_to]
+  prediction_norm = lstm.predict(model, data[config.FEATURES].to_numpy()[date_from:,:], predict_days)
   prediction = de_normalize(prediction_norm, scalers[-1])
-  actual = data['ConfirmedCases'][200:230]
-  loss = (prediction - actual) ** 2
+  actual = data['ConfirmedCases'][date_from:date_to]
 
   draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
 
