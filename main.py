@@ -126,11 +126,12 @@ def grid_cross_validation(x, y):
 
   lstm_model = KerasClassifier(build_fn=lstm.create_model, verbose=2)
 
-  learn_rate = [0.001]#[0.001, 0.01, 0.1, 0.2, 0.3]
-  activation = ['relu']#['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
-  dropout_rate = [0.2]#[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  learn_rate = [0.001, 0.01, 0.1, 0.2, 0.3]
+  activation = ['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
+  dropout_rate = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  neurons = [32, 64, 128, 256, 512]
 
-  params = dict(learn_rate=learn_rate, activation=activation, dropout_rate=dropout_rate)
+  params = dict(learn_rate=learn_rate, activation=activation, dropout_rate=dropout_rate, neurons=neurons)
   clf = GridSearchCV(estimator=lstm_model, param_grid=params, cv = inner_cv)
   grid_result = clf.fit(x, y)
 
@@ -157,7 +158,7 @@ def run_pipeline():
 
   x_norm, _, y_norm, _, scalers = normalize_dataset(x.copy(), None, y.copy(), None)
 
-  best_params = {'activation': 'relu', 'dropout_rate': 0.2, 'learn_rate': 0.001}
+  best_params = {'learn_rate': 0.001,'activation': 'relu', 'dropout_rate': 0.2, 'neurons': 128}
   #best_params, _ = grid_cross_validation(x_norm, y_norm)
   #best_params, r2_scores = nested_cross_validation(x_norm, y_norm)
   #print("Nested cross validation r2 scores:" + r2_scores)

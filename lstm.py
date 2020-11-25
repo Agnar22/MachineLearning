@@ -11,15 +11,15 @@ import config
 import main
 
 
-def create_model(learn_rate, activation, dropout_rate):
+def create_model(learn_rate, activation, dropout_rate, neurons):
   model = Sequential()
   model.add(LSTM(config.UNITS, input_shape=(config.INPUTDAYS, len(config.FEATURES)), return_sequences=False))
   model.add(Dropout(dropout_rate))
-  model.add(Dense(256, activation=activation))
+  model.add(Dense(neurons, activation=activation))
   model.add(Dropout(dropout_rate))
-  model.add(Dense(128, activation=activation))
+  model.add(Dense(neurons, activation=activation))
   model.add(Dropout(dropout_rate))
-  model.add(Dense(128, activation=activation))
+  model.add(Dense(neurons, activation=activation))
   model.add(Dense(1, activation='linear'))
   optim = Adam(lr=learn_rate)
   # optim = RMSprop()
