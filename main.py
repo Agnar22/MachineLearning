@@ -97,10 +97,10 @@ def normalize_dataset(X_train, X_test, Y_train, Y_test):
     if X_test != None:
       X_test[:,:,col] = normalize_data(X_test[:, :, col], scaler).reshape(*X_test.shape[:2])
     scalers.append(scaler)
-  Y_train_norm = normalize_data(Y_train, scaler)
+  Y_train = normalize_data(Y_train, scaler)
   if Y_test != None:
-    Y_test_norm = normalize_data(Y_test, scaler)
-  return X_train, X_test, Y_train_norm, Y_test_norm, scalers
+    Y_test = normalize_data(Y_test, scaler)
+  return X_train, X_test, Y_train, Y_test, scalers
 
 def normalize_data(data: np.ndarray, scaler: MinMaxScaler):
   """
