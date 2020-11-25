@@ -151,7 +151,7 @@ def run_pipeline():
   date_to = date_from + predict_days
   dates = data['Date'][date_from:date_to]
   cases_norway = data[data['CountryName'] == 'Norway']
-  X_test_norm = scaler.transform(cases_norway[config.FEATURES].to_numpy())
+  X_test_norm = scaler.transform_timeseries(cases_norway[config.FEATURES].to_numpy())
   prediction_norm = lstm.predict(model, X_test_norm[date_from-config.INPUTDAYS:], predict_days)
   _, prediction = scaler.inverse_transform(None, prediction_norm)
   actual = cases_norway['ConfirmedCases'][date_from:date_to]
