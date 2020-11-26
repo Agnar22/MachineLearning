@@ -25,5 +25,3 @@ if everything went well, you should now be able to run the code
 ```bash
 python3.6 main.py
 ```
-## User Guide
-To run the model, run `main.py`.
