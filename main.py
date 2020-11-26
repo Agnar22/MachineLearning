@@ -134,6 +134,29 @@ def nested_cross_validation(x: np.ndarray, y: np.ndarray):
 
   return best_params, r2_scores
 
+def visualize_predictions(model, data):
+  while True:
+    try:
+      date_from = int(input("From:"))
+      predict_days = int(input("Days:"))
+      date_to = date_from + predict_days
+      dates = data['Date'][date_from:date_to]
+      cases_norway = data[data['CountryName'] == 'Norway']
+      x, y, scaler = create_supervised_data_set(cases_norway.copy(), overlapping=True) #EXTRA
+      X_test_norm = scaler.transform_timeseries(cases_norway[config.FEATURES].to_numpy().copy())
+      prediction_norm = lstm.predict(model, X_test_norm[date_from-config.INPUTDAYS:], predict_days)
+      _, prediction_diffed = scaler.inverse_transform(None, prediction_norm)
+      total_diffed = np.concatenate((difference(cases_norway['ConfirmedCases'][:date_from].copy(),1),prediction_diffed))
+      prediction = undo_difference(total_diffed, 1)[-len(prediction_diffed):]
+      actual = np.array(cases_norway['ConfirmedCases'][date_from:date_to])
+      draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'},
+                 {'x':cases_norway['Date'][date_from-predict_days:date_from], 'y':cases_norway['ConfirmedCases'][date_from-predict_days:date_from], 'name':'start'})
+    except:
+      quit=input("Quit?(y/n)")
+      if quit is 'y':
+        return 0
+
+
 
 def run_pipeline():
   # fix random seed for reproducibility
@@ -170,7 +193,10 @@ def run_pipeline():
   draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'},
              {'x':cases_norway['Date'][date_from-predict_days:date_from], 'y':cases_norway['ConfirmedCases'][date_from-predict_days:date_from], 'name':'start'})
 
-  return
+
+  model.load_weights('Models/model_11_0.0002.h5')
+  visualize_predictions(model, data)
+
 
   #lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
   # plt.boxplot(Y_test)
