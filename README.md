@@ -5,17 +5,20 @@ These were retrieved from:
 - https://github.com/owid/covid-19-data/tree/master/public/data
 - https://github.com/OxCGRT/covid-policy-tracker
 
-## Prerequisites
-Python 3.7 (64 bit) or higher must be installed.
+## Installation
+Clone the repository
+```bash
+git clone git@github.com:Agnar22/MachineLearning.git
+```
 
-The following packages must be installed to run the model. These can be installed using pip.
-- tensorflow
-- keras
-- pandas
-- matplotlib
-- sklearn
-- shap
-- statsmodels
+navigate into the project folder
+```bash
+cd MachineLearning
+```
 
+if everything went well, you should now be able to run the code
+```bash
+python3.6 main.py
+```
 ## User Guide
 To run the model, run `main.py`.
