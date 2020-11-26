@@ -108,15 +108,14 @@ def split_data(x: np.ndarray, y: np.ndarray):
 def grid_cross_validation(x: np.ndarray, y: np.ndarray):
   inner_cv = TimeSeriesSplit(n_splits=5)
 
-  learn_rate = [0.001, 0.01, 0.1, 0.2, 0.3]
-  activation = ['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
-  dropout_rate = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-  neurons = [32, 64, 128, 256, 512]
+  learn_rate = [0.001, 0.005, 0.01, 0.05, 0.1]
+  activation = ['relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
+  neurons = [10, 20, 40, 80, 160]
 
-  pipeline = make_pipeline(NormalizeScaler(),KerasRegressor(lstm.create_model))
+  model = KerasRegressor(lstm.create_model)
 
-  params = {'kerasregressor__learn_rate':learn_rate, 'kerasregressor__activation':activation, 'kerasregressor__dropout_rate':dropout_rate, 'kerasregressor__neurons':neurons}
-  clf = GridSearchCV(pipeline, params,cv = inner_cv)
+  params = {'learn_rate':learn_rate, 'activation':activation, 'neurons':neurons}
+  clf = GridSearchCV(model, params,cv = inner_cv)
   grid_result = clf.fit(x, y)
 
   # summarize results
@@ -167,8 +166,8 @@ def run_pipeline():
 
   x, y, _ = create_supervised_data_set(data[data['CountryName'] != 'Norway'].copy(), overlapping=True)
 
-  best_params = {'learn_rate': 0.005,'activation': 'relu', 'dropout_rate': 0.2, 'neurons': 128}
-  #best_params, _ = grid_cross_validation(x, y)
+  #best_params = {'learn_rate': 0.001,'activation': 'tanh', 'neurons': 20}
+  best_params, _ = grid_cross_validation(x, y)
   #best_params, r2_scores = nested_cross_validation(x, y)
   #print("Nested cross validation r2 scores:" + r2_scores)
   #print("Nested cross validation r2 scores mean:" + r2_scores.mean())
