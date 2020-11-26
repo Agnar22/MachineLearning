@@ -15,5 +15,7 @@ FEATURES = ['C1_School closing', 'C2_Workplace closing', 'C3_Cancel public event
 
 # LSTM parameters.
 UNITS = 20
-EPOCHS = 3
+EPOCHS = 10
 SAVE = True
+USE_CACHED_HYPERPARAMETERS = True
+USE_CACHED_FITTED_MODEL = True

@@ -11,20 +11,19 @@ import config
 import main
 
 
-def create_model(learn_rate, activation, dropout_rate, neurons):
+def create_model(learn_rate, activation, neurons):
+  # fix random seed for reproducibility
+  seed = 10
+  np.random.seed(seed)
+
   model = Sequential()
-  model.add(LSTM(config.UNITS, input_shape=(config.INPUTDAYS, len(config.FEATURES)), return_sequences=False))
-  model.add(Dropout(dropout_rate))
-  model.add(Dense(neurons, activation=activation))
-  model.add(Dropout(dropout_rate))
-  model.add(Dense(neurons, activation=activation))
-  model.add(Dropout(dropout_rate))
-  model.add(Dense(neurons, activation=activation))
-  model.add(Dense(1, activation='linear'))
+  model.add(LSTM(neurons, activation=activation, input_shape=(config.INPUTDAYS, len(config.FEATURES)), return_sequences=False))
+  model.add(Dense(units=neurons, activation=activation))
+  model.add(Dense(units=1, activation='linear'))
+  # Compiling the RNN
   optim = Adam(lr=learn_rate)
-  # optim = RMSprop()
-  model.compile(loss='logcosh', optimizer=optim, metrics=["accuracy"])
-  model.summary()
+  model.compile(optimizer = optim, loss = 'mean_squared_error')
+  #model.summary()
   return model
 
 
@@ -58,7 +57,7 @@ def calculate_shap(model: Sequential, X_train: np.ndarray, X_test: np.ndarray, f
   shap_values_2d = shap_values[0].reshape(-1, len(config.FEATURES))
   X_test_2d = X_test.reshape(-1, len(config.FEATURES))
 
-  shap.summary_plot(shap_values_2d[:, :len(config.FEATURES) - 1], X_test_2d[:, :len(config.FEATURES) - 1],
+  shap.summary_plot(shap_values_2d[:, :len(config.FEATURES)], X_test_2d[:, :len(config.FEATURES)],
                     features[:-1])
 
 
