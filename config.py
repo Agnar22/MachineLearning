@@ -5,6 +5,7 @@ INPUTDAYS = 21
 VALIDATION_SIZE = 0.2
 INFECTED_LOWER = 100
 LSTM_MODEL_DIR = 'Models'
+FFILL_ANALYSIS = False
 
 # ConfirmedCases has to be the last column as this is used when indexing.
 FEATURES = ['C1_School closing', 'C2_Workplace closing', 'C3_Cancel public events', 'C4_Restrictions on gatherings',

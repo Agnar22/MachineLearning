@@ -85,6 +85,7 @@ def load_and_clean_data():
     post_fill_NaN_zero = count_NaN_and_zero_confirmed_cases(data)
     diff_fill_NaN_zero = pre_fill_NaN_zero - post_fill_NaN_zero
     total_cases_cells = len(data['ConfirmedCases'])
+    # Comments made in commit id f3caa99
     print("Non NaN/zero cells forward filled:", diff_fill_NaN_zero) # 364
     print("Total cases cells:", total_cases_cells) # 53856
   else:
@@ -167,7 +168,8 @@ def run_pipeline():
   if config.USE_CACHED_HYPERPARAMETERS:
     best_params = {'activation': 'tanh','learn_rate': 0.001,'neurons': 20}
   else:
-    best_params, non_nested_r2_score, nested_r2_scores = nested_cross_validation(x, y)
+    best_params, non_nested_r2_score, nested_r2_scores = nested_cross_validation(x, y) 
+    # Comments made in commit: f3caa99
     print("Best params:", best_params) # Best params: {'activation': 'hard_sigmoid', 'learn_rate': 0.05, 'neurons': 20}
     print("Non-nested cross validation r2 score:", non_nested_r2_score) # Non-nested cross validation r2 score: -0.0003677288186736405
     print("Nested cross validation r2 scores:", nested_r2_scores) # Nested cross validation r2 scores: [-0.00061681 -0.00021794 -0.00018851 -0.00043963 -0.00013743]
