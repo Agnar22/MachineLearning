@@ -166,7 +166,8 @@ def run_pipeline():
   total_diffed = np.concatenate((difference(cases_norway['ConfirmedCases'][:date_from].copy(),1),prediction_diffed))
   prediction = undo_difference(total_diffed, 1)[-len(prediction_diffed):]
   actual = np.array(cases_norway['ConfirmedCases'][date_from:date_to])
-  draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'})
+  draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'},
+             {'x':cases_norway['Date'][date_from-predict_days:date_from], 'y':cases_norway['ConfirmedCases'][date_from-predict_days:date_from], 'name':'start'})
 
   return
 
