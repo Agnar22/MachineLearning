@@ -108,9 +108,9 @@ def split_data(x: np.ndarray, y: np.ndarray):
 def grid_cross_validation(x: np.ndarray, y: np.ndarray):
   inner_cv = TimeSeriesSplit(n_splits=5)
 
-  learn_rate = [0.001, 0.005, 0.01, 0.05, 0.1]
+  learn_rate = [0.001]
   activation = ['relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
-  neurons = [10, 20, 40, 80, 160]
+  neurons = [10, 20, 40]
 
   model = KerasRegressor(lstm.create_model)
 
@@ -166,38 +166,25 @@ def run_pipeline():
 
   x, y, _ = create_supervised_data_set(data[data['CountryName'] != 'Norway'].copy(), overlapping=True)
 
-  #best_params = {'learn_rate': 0.001,'activation': 'tanh', 'neurons': 20}
-  best_params, _ = grid_cross_validation(x, y)
+  best_params = {'learn_rate': 0.001,'activation': 'tanh','neurons': 20}
   #best_params, r2_scores = nested_cross_validation(x, y)
-  #print("Nested cross validation r2 scores:" + r2_scores)
-  #print("Nested cross validation r2 scores mean:" + r2_scores.mean())
+  #Best: 0.001391 using {'learn_rate': 0.001,'activation': 'tanh', 'neurons': 20}
+  #print("Best params:", best_params)
+  #print("Nested cross validation r2 scores:", r2_scores)
+  #print("Nested cross validation r2 scores mean:", r2_scores.mean())
 
   model = lstm.create_model(**best_params)
   X_train, X_val, Y_train, Y_val = split_data(x, y)
   X_train_norm, X_val_norm, Y_train_norm, Y_val_norm = X_train, X_val, Y_train, Y_val #EXTRA
-  history = lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_val_norm, Y_val_norm))
-  draw_graph({'x':range(config.EPOCHS),'y':history['val_loss'],'name':'val_loss'},{'x':range(config.EPOCHS),'y':history['loss'],'name':'loss'})
-  date_from = 100
-  predict_days = 30
-  date_to = date_from + predict_days
-  dates = data['Date'][date_from:date_to]
-  cases_norway = data[data['CountryName'] == 'Norway']
-  x, y, scaler = create_supervised_data_set(cases_norway.copy(), overlapping=True) #EXTRA
-  X_test_norm = scaler.transform_timeseries(cases_norway[config.FEATURES].to_numpy().copy())
-  prediction_norm = lstm.predict(model, X_test_norm[date_from-config.INPUTDAYS:], predict_days)
-  _, prediction_diffed = scaler.inverse_transform(None, prediction_norm)
-  total_diffed = np.concatenate((difference(cases_norway['ConfirmedCases'][:date_from].copy(),1),prediction_diffed))
-  prediction = undo_difference(total_diffed, 1)[-len(prediction_diffed):]
-  actual = np.array(cases_norway['ConfirmedCases'][date_from:date_to])
-  #draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'},
-  #           {'x':cases_norway['Date'][date_from-predict_days:date_from], 'y':cases_norway['ConfirmedCases'][date_from-predict_days:date_from], 'name':'start'})
-
-
-  #model.load_weights('Models/model_10_22903.9414.h5')
+  if False:
+    history = lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_val_norm, Y_val_norm))
+    draw_graph({'x':range(config.EPOCHS),'y':history['val_loss'],'name':'val_loss'},{'x':range(config.EPOCHS),'y':history['loss'],'name':'loss'})
+  else:
+    model.load_weights('Models/model_10_0.0001.h5')
   visualize_predictions(model, data)
 
 
-  #lstm.calculate_shap(model, x_norm[0:1000], x_norm[1000:2000], config.FEATURES)
+  #lstm.calculate_shap(model, X_train_norm[0:1000], X_val_norm[1000:2000], config.FEATURES)
   # plt.boxplot(Y_test)
   # plt.show()
 
