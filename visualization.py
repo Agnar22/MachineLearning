@@ -37,6 +37,7 @@ def draw_graph(*args, x: str = 'x', y: str = 'y'):
   plt.ylabel(y)
   plt.xticks(fontsize=8)
   plt.legend()
+  plt.grid()
   plt.show(block=True)
 
 

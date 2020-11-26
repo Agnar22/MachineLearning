@@ -192,6 +192,8 @@ def run_pipeline():
 
   # for pos in np.flip(np.argsort(loss, axis=0))[0:10]:
   #  print(pos, X_train[pos], Y_train[pos], predictions[pos], loss[pos])
+  samples = np.random.choice(x.shape[0], size=2000)
+  lstm.calculate_shap(model, x[np.random.choice(x.shape[0], size=1500)], x[samples], config.FEATURES)
 
 
 if __name__ == '__main__':

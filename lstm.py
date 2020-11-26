@@ -57,7 +57,7 @@ def calculate_shap(model: Sequential, X_train: np.ndarray, X_test: np.ndarray, f
   shap_values_2d = shap_values[0].reshape(-1, len(config.FEATURES))
   X_test_2d = X_test.reshape(-1, len(config.FEATURES))
 
-  shap.summary_plot(shap_values_2d[:, :len(config.FEATURES)], X_test_2d[:, :len(config.FEATURES)],
+  shap.summary_plot(shap_values_2d[:, :len(config.FEATURES)-1], X_test_2d[:, :len(config.FEATURES)-1],
                     features[:-1])
 
 
