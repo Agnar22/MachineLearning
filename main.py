@@ -153,7 +153,8 @@ def run_pipeline():
   model = lstm.create_model(**best_params)
   X_train, X_val, Y_train, Y_val = split_data(x, y)
   X_train_norm, X_val_norm, Y_train_norm, Y_val_norm = X_train, X_val, Y_train, Y_val #EXTRA
-  lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_val_norm, Y_val_norm))
+  history = lstm.train_model(model, X_train_norm, Y_train_norm, validation=(X_val_norm, Y_val_norm))
+  draw_graph({'x':range(config.EPOCHS),'y':history['val_loss'],'name':'val_loss'},{'x':range(config.EPOCHS),'y':history['loss'],'name':'loss'})
   date_from = 100
   predict_days = 30
   date_to = date_from + predict_days
