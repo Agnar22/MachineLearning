@@ -11,14 +11,14 @@ class NormalizeScaler( BaseEstimator, TransformerMixin ):
     :param data:
     :return: normalized values for x
     """
-    return scaler.transform(data.reshape(-1, 1)).reshape(-1) * 1000.0
+    return scaler.transform(data.reshape(-1, 1)).reshape(-1)
 
   def de_normalize_data(self, data: np.ndarray, scaler: MinMaxScaler):
     """
     :param data:
     :return: de_normalized values for x
     """
-    return scaler.inverse_transform((data/1000.0).reshape(-1, 1)).reshape(-1)
+    return scaler.inverse_transform((data).reshape(-1, 1)).reshape(-1)
 
   def fit( self, X, y = None ):
     self.scalers = []

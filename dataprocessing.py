@@ -10,13 +10,13 @@ def is_stationary(series):
   return pValue<SignificanceLevel
 
 def difference(x, d=1):
-  for _ in range(d):
-    x = np.diff(x, prepend=0) # out[i] = x[i] - x[i-1], out[0]=x[0]
+  #for _ in range(d):
+  #  x = np.diff(x, prepend=0) # out[i] = x[i] - x[i-1], out[0]=x[0]
   return x
 
 def undo_difference(x, d=1):
-  for _ in range(d):
-    x = np.cumsum(x) # out[i] = x[i] + out[i-1], out[0]=x[0]
+  #for _ in range(d):
+  #  x = np.cumsum(x) # out[i] = x[i] + out[i-1], out[0]=x[0]
   return x
 
 def make_stationary(series):

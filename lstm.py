@@ -12,19 +12,17 @@ import main
 
 
 def create_model(learn_rate, activation, dropout_rate, neurons):
+  # fix random seed for reproducibility
+  seed = 10
+  np.random.seed(seed)
+
   model = Sequential()
-  model.add(LSTM(config.UNITS, input_shape=(config.INPUTDAYS, len(config.FEATURES)), return_sequences=False))
-  model.add(Dropout(dropout_rate))
-  model.add(Dense(neurons, activation=activation))
-  model.add(Dropout(dropout_rate))
-  model.add(Dense(neurons, activation=activation))
-  model.add(Dropout(dropout_rate))
-  model.add(Dense(neurons, activation=activation))
-  model.add(Dense(1, activation='linear'))
-  optim = Adam(lr=learn_rate)
-  # optim = RMSprop()
-  model.compile(loss='logcosh', optimizer=optim )
-  model.summary()
+  model.add(LSTM(20, activation='tanh', input_shape=(config.INPUTDAYS, len(config.FEATURES)), return_sequences=False))
+  model.add(Dense(units=20, activation='tanh'))
+  model.add(Dense(units=1, activation='linear'))
+  # Compiling the RNN
+  model.compile(optimizer = 'adam', loss = 'mean_squared_error')
+  #model.summary()
   return model
 
 
