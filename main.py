@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV, cross_val_score, TimeSeriesSplit
 from visualization import draw_graph
 from scaler import NormalizeScaler
-
+from sklearn.metrics import accuracy_score,mean_squared_error, r2_score
 
 def groups_to_cases(groups):
   """
@@ -109,7 +109,7 @@ def grid_cross_validation(x: np.ndarray, y: np.ndarray):
   model = KerasRegressor(lstm.create_model)
 
   params = {'learn_rate':learn_rate, 'activation':activation, 'neurons':neurons}
-  clf = GridSearchCV(model, params,cv = inner_cv)
+  clf = GridSearchCV(model, params,cv = inner_cv, scoring='r2')
   clf.fit(x, y)
 
   # Summarize results.
@@ -129,21 +129,40 @@ def nested_cross_validation(x: np.ndarray, y: np.ndarray):
 
   return best_params, non_nested_r2_score, nested_r2_scores
 
+def fill_features(X_test_norm: np.ndarray, days_into_future: int, feature_option: int):
+  for days in range(days_into_future + 1):
+    feature_1_index = config.FEATURES.index('H2_Testing policy')
+    X_test_norm[-days_into_future + days, feature_1_index] = 0.0
+  if feature_option != 1:
+    raise Exception("Illegal feature option")
+  return X_test_norm
+
+def mean_absolute_percentage_error(y_true, y_pred): 
+    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+
 def visualize_predictions(model, data):
   while True:
     try:
       date_from = int(input("From:"))
       predict_days = int(input("Days:"))
+      feature_option = int(input("Choose feature option (0: Keep features, 1: Use recommended by SHAP):"))
       date_to = date_from + predict_days
-      dates = data['Date'][date_from:date_to]
+      full_dates = data['Date'][:date_to]
+      prediction_dates = data['Date'][date_from-1:date_to]
       cases_norway = data[data['CountryName'] == 'Norway']
       x, y, scaler = create_supervised_data_set(cases_norway.copy())
       X_test_norm = scaler.transform_timeseries(cases_norway[config.FEATURES].to_numpy().copy())
+      if feature_option != 0:
+        X_test_norm = fill_features(X_test_norm, predict_days, feature_option)
       prediction_norm = lstm.predict(model, X_test_norm[date_from-config.INPUTDAYS:], predict_days)
       _, prediction = scaler.inverse_transform(None, prediction_norm)
       actual = np.array(cases_norway['ConfirmedCases'][date_from:date_to])
-      draw_graph({'x':dates,'y':prediction,'name':'prediction'},{'x':dates,'y':actual,'name':'actual'},
-                 {'x':cases_norway['Date'][date_from-predict_days:date_from], 'y':cases_norway['ConfirmedCases'][date_from-predict_days:date_from], 'name':'start'})
+      full_actual = np.array(cases_norway['ConfirmedCases'][:date_to])
+      prediction = np.insert(prediction,0,full_actual[date_from-1],axis=0)
+      draw_graph({'x':prediction_dates,'y':prediction,'line-style':'r','name':'prediction'},{'x':full_dates,'y':full_actual,'line-style':'b','name':'actual'}, x = 'Date', y = 'Confirmed cases')
+      print("MSE:", mean_squared_error(prediction[1:], actual))
+      print("MAPE:", mean_absolute_percentage_error(prediction[1:], actual))
+      print("R2:", r2_score(prediction[1:], actual))
     except:
       quit=input("Quit?(Y/n)")
       if quit == '' or quit == 'y' or quit == 'Y':
@@ -163,12 +182,12 @@ def run_pipeline():
   if config.USE_CACHED_HYPERPARAMETERS:
     best_params = {'activation': 'tanh','learn_rate': 0.001,'neurons': 20}
   else:
-    best_params, non_nested_r2_score, nested_r2_scores = nested_cross_validation(x, y)
-    # Comments made in commit: f3caa99
+    best_params, non_nested_r2_score, nested_r2_scores = nested_cross_validation(x, y) 
+    # Comments made in commit: b87ebab
     print("Best params:", best_params) # Best params: {'activation': 'hard_sigmoid', 'learn_rate': 0.05, 'neurons': 20}
-    print("Non-nested cross validation r2 score:", non_nested_r2_score) # Non-nested cross validation r2 score: -0.0003677288186736405
-    print("Nested cross validation r2 scores:", nested_r2_scores) # Nested cross validation r2 scores: [-0.00061681 -0.00021794 -0.00018851 -0.00043963 -0.00013743]
-    print("Nested cross validation r2 scores mean:", nested_r2_scores.mean()) # Nested cross validation r2 scores mean: -0.0003200653416570276
+    print("Non-nested cross validation r2 score:", non_nested_r2_score) # Non-nested cross validation r2 score: 0.99655707210465
+    print("Nested cross validation r2 scores:", nested_r2_scores) # Nested cross validation r2 scores: [0.99476824 0.99852929 0.99867877 0.99759416 0.99780428]
+    print("Nested cross validation r2 scores mean:", nested_r2_scores.mean()) # Nested cross validation r2 scores mean: 0.9974749490942377
 
   model = lstm.create_model(**best_params)
   X_train, X_val, Y_train, Y_val = split_data(x, y)

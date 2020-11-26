@@ -1,8 +1,9 @@
 import config
 import pandas as pd
 import matplotlib.pyplot as plt
-import lstm
+#import lstm
 from keras.models import Sequential
+import matplotlib.dates as mdates
 
 
 def visualize_spread_for_countries(data: pd.DataFrame):
@@ -24,7 +25,7 @@ def visualize_spread_for_countries(data: pd.DataFrame):
 
 def draw_graph(*args, x: str = 'x', y: str = 'y'):
   """
-  :param args: dict('x' : list, 'y' : list, 'name' : str)
+  :param args: dict('x' : list, 'y' : list, 'line-style':str,'name' : str)
   :param y: label for y axis.
   :param x: label for x axis.
   :return:
@@ -32,12 +33,20 @@ def draw_graph(*args, x: str = 'x', y: str = 'y'):
 
   plt.close('all')
   for func in args:
-    plt.plot(func['x'], func['y'], label=func['name'])
+    plt.plot(func['x'], func['y'], func['line-style'], label=func['name'])
+  X = plt.gca().xaxis
+  # Set the locator
+  locator = mdates.MonthLocator()  # every month
+  # Specify the format - %b gives us Jan, Feb...
+  fmt = mdates.DateFormatter('%b')
+  X.set_major_locator(locator)
+  # Specify formatter
+  X.set_major_formatter(fmt)
   plt.xlabel(x)
   plt.ylabel(y)
   plt.xticks(fontsize=8)
   plt.legend()
-  plt.grid()
+  plt.grid(False)
   plt.show(block=True)
 
 
