@@ -16,6 +16,11 @@ navigate into the project folder
 cd MachineLearning
 ```
 
+install dependencies
+```bash
+cd pip3 install -r requirements.txt
+```
+
 if everything went well, you should now be able to run the code
 ```bash
 python3.6 main.py
