@@ -2,37 +2,31 @@ import pandas as pd
 import config
 import numpy as np
 import lstm
-import visualization
-from sklearn.pipeline import Pipeline
 from keras.wrappers.scikit_learn import KerasRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV, cross_val_score, TimeSeriesSplit
-from sklearn.metrics import accuracy_score
-from sklearn.pipeline import make_pipeline
 from visualization import draw_graph
 from scaler import NormalizeScaler
 
 
-def groups_to_cases(groups, overlapping: bool = False):
+def groups_to_cases(groups):
   """
   :param groups:
-  :param overlapping:
   :return:
   """
   y = np.array([])
   x = np.array([]).reshape(-1, config.INPUTDAYS, len(config.FEATURES))
   scaler = None
   for _, group in groups:
-    x_group, y_group, scaler = group_to_cases(group, overlapping=overlapping)
+    x_group, y_group, scaler = group_to_cases(group)
     y = np.concatenate((y, y_group))
     x = np.concatenate((x, x_group))
   return x, y, scaler
 
 
-def group_to_cases(group, overlapping: bool = False):
+def group_to_cases(group):
   """
   :param group:
-  :param overlapping:
   :return:
   """
   y = group['ConfirmedCases'].iloc[config.INPUTDAYS:].to_numpy()
@@ -47,13 +41,13 @@ def group_to_cases(group, overlapping: bool = False):
   return x, y, scaler
 
 
-def create_supervised_data_set(data: pd.DataFrame, overlapping: bool = False):
+def create_supervised_data_set(data: pd.DataFrame):
   """
   :param data:
   :return: supervised data set (input and target)
   """
   data = data[data['ConfirmedCases'] > config.INFECTED_LOWER].groupby('CountryName')
-  x, y, scaler = groups_to_cases(data, overlapping=overlapping)
+  x, y, scaler = groups_to_cases(data)
   return x, y, scaler
 
 def count_NaN_and_zero_confirmed_cases(data: pd.DataFrame):
@@ -67,17 +61,17 @@ def load_and_clean_data():
   """
   data = pd.read_csv(config.DATA_PATH)
 
-  # Remove the last two weeks (data is updated once per week, therefore the maximum gap would be two weeks)
+  # Remove the last two weeks (data is updated once per week, therefore the maximum gap would be two weeks).
   data = data[data['Date'] < 20201015]
 
-  # Drop states
+  # Drop states.
   data = data[pd.isnull(data['RegionName'])]
 
   # Keep relevant columns.
   relevant_columns = config.FEATURES + ['CountryName', 'Date', 'ConfirmedCases']
   data = data[list(filter(lambda x: x in relevant_columns, data.columns))]
 
-  # Fill na with forward fill
+  # Fill na with forward fill.
   data.loc[data['Date'] == 20200101] = data.loc[data['Date'] == 20200101].fillna(0)
   if config.FFILL_ANALYSIS:
     pre_fill_NaN_zero = count_NaN_and_zero_confirmed_cases(data)
@@ -91,7 +85,7 @@ def load_and_clean_data():
   else:
     data.fillna(method='ffill', inplace = True)
 
-  # Format date
+  # Format date.
   data['Date'] = pd.to_datetime(data['Date'], format='%Y%m%d')
 
   return data
@@ -118,8 +112,8 @@ def grid_cross_validation(x: np.ndarray, y: np.ndarray):
   clf = GridSearchCV(model, params,cv = inner_cv)
   clf.fit(x, y)
 
-  # summarize results
-  print("Best: %f using %s" % (clf.best_score_, clf.best_params_)) # average of r2 scores
+  # Summarize results.
+  print("Best: %f using %s" % (clf.best_score_, clf.best_params_)) # Average of r2 scores.
 
   return clf.best_params_, clf
 
@@ -129,7 +123,8 @@ def nested_cross_validation(x: np.ndarray, y: np.ndarray):
   best_params, clf = grid_cross_validation(x, y)
 
   non_nested_r2_score = clf.best_score_
-  # Nested CV with parameter optimization
+
+  # Nested CV with parameter optimization.
   nested_r2_scores = cross_val_score(clf, X=x, y=y, cv=outer_cv)
 
   return best_params, non_nested_r2_score, nested_r2_scores
@@ -142,7 +137,7 @@ def visualize_predictions(model, data):
       date_to = date_from + predict_days
       dates = data['Date'][date_from:date_to]
       cases_norway = data[data['CountryName'] == 'Norway']
-      x, y, scaler = create_supervised_data_set(cases_norway.copy(), overlapping=True)
+      x, y, scaler = create_supervised_data_set(cases_norway.copy())
       X_test_norm = scaler.transform_timeseries(cases_norway[config.FEATURES].to_numpy().copy())
       prediction_norm = lstm.predict(model, X_test_norm[date_from-config.INPUTDAYS:], predict_days)
       _, prediction = scaler.inverse_transform(None, prediction_norm)
@@ -157,18 +152,18 @@ def visualize_predictions(model, data):
 
 
 def run_pipeline():
-  # fix random seed for reproducibility
+  # Fix random seed for reproducibility.
   seed = 10
   np.random.seed(seed)
 
   data = load_and_clean_data()
 
-  x, y, _ = create_supervised_data_set(data[data['CountryName'] != 'Norway'].copy(), overlapping=True)
+  x, y, _ = create_supervised_data_set(data[data['CountryName'] != 'Norway'].copy())
 
   if config.USE_CACHED_HYPERPARAMETERS:
     best_params = {'activation': 'tanh','learn_rate': 0.001,'neurons': 20}
   else:
-    best_params, non_nested_r2_score, nested_r2_scores = nested_cross_validation(x, y) 
+    best_params, non_nested_r2_score, nested_r2_scores = nested_cross_validation(x, y)
     # Comments made in commit: f3caa99
     print("Best params:", best_params) # Best params: {'activation': 'hard_sigmoid', 'learn_rate': 0.05, 'neurons': 20}
     print("Non-nested cross validation r2 score:", non_nested_r2_score) # Non-nested cross validation r2 score: -0.0003677288186736405
@@ -182,16 +177,10 @@ def run_pipeline():
   else:
     history = lstm.train_model(model, X_train, Y_train, validation=(X_val, Y_val))
     draw_graph({'x':range(config.EPOCHS),'y':history['val_loss'],'name':'val_loss'},{'x':range(config.EPOCHS),'y':history['loss'],'name':'loss'})
-    
+
   visualize_predictions(model, data)
 
 
-  #lstm.calculate_shap(model, X_train[0:1000], X_val[1000:2000], config.FEATURES)
-  # plt.boxplot(Y_test)
-  # plt.show()
-
-  # for pos in np.flip(np.argsort(loss, axis=0))[0:10]:
-  #  print(pos, X_train[pos], Y_train[pos], predictions[pos], loss[pos])
   samples = np.random.choice(x.shape[0], size=2000)
   lstm.calculate_shap(model, x[np.random.choice(x.shape[0], size=1500)], x[samples], config.FEATURES)
 

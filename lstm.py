@@ -1,4 +1,4 @@
-from keras.layers import Dense, LSTM, Dropout
+from keras.layers import Dense, LSTM
 from keras.models import Sequential
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
@@ -8,11 +8,10 @@ import shap
 import numpy as np
 import pandas as pd
 import config
-import main
 
 
 def create_model(learn_rate, activation, neurons):
-  # fix random seed for reproducibility
+  # Fix random seed for reproducibility.
   seed = 10
   np.random.seed(seed)
 
@@ -20,10 +19,9 @@ def create_model(learn_rate, activation, neurons):
   model.add(LSTM(neurons, activation=activation, input_shape=(config.INPUTDAYS, len(config.FEATURES)), return_sequences=False))
   model.add(Dense(units=neurons, activation=activation))
   model.add(Dense(units=1, activation='linear'))
-  # Compiling the RNN
+  # Compiling the LSTM.
   optim = Adam(lr=learn_rate)
   model.compile(optimizer = optim, loss = 'mean_squared_error')
-  #model.summary()
   return model
 
 
@@ -70,5 +68,4 @@ def predict(model: Sequential, x: np.ndarray, days: int, series_dim: int = -1):
     pred = model.predict(rec_x[day:day + config.INPUTDAYS].reshape(1, config.INPUTDAYS, len(config.FEATURES)))
     predictions = np.append(predictions, pred)
     rec_x[day + config.INPUTDAYS + 1, series_dim] = pred
-    # rec_x = np.append(rec_x[1:], pred)
   return predictions
